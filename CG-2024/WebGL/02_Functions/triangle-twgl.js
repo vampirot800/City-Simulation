@@ -69,8 +69,11 @@ function generateData() {
             numComponents: 2,
             data: new Float32Array([
                 0,   0.7,
-                0.5,  -0.7,
-                -0.5,  -0.7,
+                0.5,  0.0,
+                -0.5,  0.0,
+                0, -0.7,
+                -0.5, 0.0,
+                0.5, 0.0,
             ])
         },
         color: {
@@ -85,6 +88,9 @@ function generateData() {
             */
             // To pass integer values, the type must be specified
             data: new Uint8Array([
+                255, 0, 0, 255,
+                0, 255, 0, 255,
+                0, 0, 255, 255,
                 255, 0, 0, 255,
                 0, 255, 0, 255,
                 0, 0, 255, 255,

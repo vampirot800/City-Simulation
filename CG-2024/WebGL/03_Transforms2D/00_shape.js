@@ -67,9 +67,11 @@ function drawScene(gl, vao, programInfo, bufferInfo) {
 
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
+    let translate = [240, 150];
     let uniforms = 
     {
         u_resolution: [gl.canvas.width, gl.canvas.height],
+        u_translate: translate,
         u_color: [Math.random(), Math.random(), Math.random(), 1],
     }
 
