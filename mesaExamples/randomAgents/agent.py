@@ -15,7 +15,6 @@ class RandomAgent(Agent):
             model: Model reference for the agent
         """
         super().__init__(unique_id, model)
-        self.direction = 4
         self.steps_taken = 0
 
     def move(self):
@@ -30,6 +29,7 @@ class RandomAgent(Agent):
         # Checks which grid cells are empty
         freeSpaces = list(map(self.model.grid.is_cell_empty, possible_steps))
 
+        # Checa si f es igual a true (celda vacia)
         next_moves = [p for p,f in zip(possible_steps, freeSpaces) if f == True]
        
         next_move = self.random.choice(next_moves)
