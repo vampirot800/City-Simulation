@@ -1,12 +1,10 @@
-# server.py
-from mesa.visualization.ModularVisualization import ModularServer
-from mesa.visualization.ModularVisualization import VisualizationElement
+# models/server.py
+from flask import Flask, jsonify
+from flask_cors import CORS
 from model import CityModel
 from agent import *
-from flask import Flask, jsonify, send_from_directory
-from flask_cors import CORS
 
-app = Flask(__name__, static_folder='public')
+app = Flask(__name__)
 CORS(app)
 
 # Agent portrayal function
@@ -47,16 +45,6 @@ class WebGLVisualization:
 # Create an instance of your model
 model_instance = CityModel(N=5)
 webgl_vis = WebGLVisualization()
-
-# Route to serve the index.html
-@app.route('/')
-def index():
-    return send_from_directory('public', 'index.html')
-
-# Route to serve other static files (JS, CSS)
-@app.route('/<path:path>')
-def serve_static(path):
-    return send_from_directory('public', path)
 
 # Endpoint to get agent data
 @app.route('/get_agents')

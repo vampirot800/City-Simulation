@@ -11,7 +11,7 @@ class CityModel(Model):
     """
     def __init__(self, N):
         # Load the map dictionary
-        dataDictionary = json.load(open("data/map_dictionary.json"))
+        dataDictionary = json.load(open("../city_files/map_dictionary.json"))
 
         self.traffic_lights = []
         self.destinations = []
@@ -19,7 +19,7 @@ class CityModel(Model):
         self.cars = []
 
         # Load the map file
-        with open('data/map.txt') as baseFile:
+        with open('../city_files/map.txt') as baseFile:
             lines = baseFile.readlines()
             self.width = len(lines[0].strip('\n'))
             self.height = len(lines)

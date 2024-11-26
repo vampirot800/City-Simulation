@@ -1,0 +1,18 @@
+{
+    "name": "RetoCiudad",
+    "version": "1.0.0",
+    "description": "Mesa Simulation with WebGL Visualization using Vite",
+    "main": "index.html",
+    "scripts": {
+      "dev": "vite",
+      "build": "vite build",
+      "serve": "vite preview"
+    },
+    "dependencies": {
+      "twgl.js": "^4.22.1"
+    },
+    "devDependencies": {
+      "vite": "^4.0.0"
+    }
+  }
+  
