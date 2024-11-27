@@ -111,47 +111,135 @@ const data = {
   height: 100
 };
 
+// Cache para modelos cargados
+const modelCache = {};
+
+/**
+ * Función para cargar y parsear modelos .obj
+ */
+async function loadModelObj(url) {
+  if (modelCache[url]) {
+    return modelCache[url];
+  }
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`No se pudo cargar el archivo .obj desde ${url}`);
+    }
+    const objText = await response.text();
+    const modelData = loadObj(objText);
+    const bufferInfo = twgl.createBufferInfoFromArrays(gl, modelData);
+    const vao = twgl.createVAOFromBufferInfo(gl, programInfo, bufferInfo);
+    const model = { bufferInfo, vao };
+    modelCache[url] = model;
+    return model;
+  } catch (error) {
+    console.error(`Error al cargar el modelo .obj desde ${url}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Función para cargar el modelo OBJ
+ */
+function loadObj(objData) {
+  const positions = [];
+  const normals = [];
+  const positionData = [];
+  const normalData = [];
+  const colorData = [];
+
+  const lines = objData.split('\n');
+  lines.forEach(line => {
+    const parts = line.trim().split(/\s+/);
+    const type = parts[0];
+
+    switch (type) {
+      case 'v':  // Vértices
+        positions.push([parseFloat(parts[1]), parseFloat(parts[2]), parseFloat(parts[3])]);
+        break;
+      case 'vn': // Normales
+        normals.push([parseFloat(parts[1]), parseFloat(parts[2]), parseFloat(parts[3])]);
+        break;
+      case 'f':  // Caras
+        const faceVertices = parts.slice(1).map(v => v.split('/').map(n => parseInt(n) - 1));
+        for (let i = 1; i < faceVertices.length - 1; i++) {
+          const triangle = [faceVertices[0], faceVertices[i], faceVertices[i + 1]];
+
+          triangle.forEach(([vIdx, vtIdx, vnIdx]) => {
+            const [vx, vy, vz] = positions[vIdx];
+            positionData.push(vx, vy, vz);
+
+            if (vnIdx !== undefined && normals[vnIdx]) {
+              const [nx, ny, nz] = normals[vnIdx];
+              normalData.push(nx, ny, nz);
+            } else {
+              normalData.push(0, 0, 1); // Normal por defecto
+            }
+
+            colorData.push(0.4, 0.4, 0.4, 1.0); // Color por defecto (gris)
+          });
+        }
+        break;
+    }
+  });
+
+  return {
+    a_position: { numComponents: 3, data: positionData },
+    a_color: { numComponents: 4, data: colorData },
+    a_normal: { numComponents: 3, data: normalData },
+  };
+}
+
+
 async function main() {
   const canvas = document.querySelector('canvas');
   gl = canvas.getContext('webgl2');
 
-  // Create the program information using the vertex and fragment shaders
+  // Crear la información del programa usando los shaders
   programInfo = twgl.createProgramInfo(gl, [vsGLSL, fsGLSL]);
 
-  // Generate the car and building data
+  // Cargar modelos .obj
+  const [buildingModel, carModel] = await Promise.all([
+    loadModelObj('../building.obj'), // Reemplaza con la ruta correcta
+    loadModelObj('../car.obj')        // Reemplaza con la ruta correcta
+  ]);
+
+  // Asignar los modelos cargados a las variables de buffer y VAO
+  buildingBufferInfo = buildingModel.bufferInfo;
+  buildingVao = buildingModel.vao;
+  carBufferInfo = carModel.bufferInfo;
+  carVao = carModel.vao;
+
+  // Generar datos para calles y destinos
   streetArrays = generateData(1);
-  buildingArrays = generateObstacleData(1);
-  carArrays = generateObstacleData(1);
   destinationArrays = generateDataD(1);
 
-  // Create buffer information from the car and building data
+  // Crear buffer info para calles y destinos
   streetBufferInfo = twgl.createBufferInfoFromArrays(gl, streetArrays);
-  buildingBufferInfo = twgl.createBufferInfoFromArrays(gl, buildingArrays);
-  carBufferInfo = twgl.createBufferInfoFromArrays(gl, carArrays);
   destinationBufferInfo = twgl.createBufferInfoFromArrays(gl, destinationArrays);
 
-  // Create vertex array objects (VAOs) from the buffer information
+  // Crear VAOs para calles y destinos
   streetVao = twgl.createVAOFromBufferInfo(gl, programInfo, streetBufferInfo);
-  buildingVao = twgl.createVAOFromBufferInfo(gl, programInfo, buildingBufferInfo);
-  carVao = twgl.createVAOFromBufferInfo(gl, programInfo, carBufferInfo);
   destinationVao = twgl.createVAOFromBufferInfo(gl, programInfo, destinationBufferInfo);
 
-  // Set up the user interface
+  // Configurar la interfaz de usuario
   setupUI();
 
-  // Initialize the agents model
+  // Inicializar el modelo de agentes
   await initAgentsModel();
 
-  // Wait briefly to ensure the server has initialized the model
+  // Esperar brevemente para asegurar que el servidor ha inicializado el modelo
   await new Promise(resolve => setTimeout(resolve, 1000));
 
-  // Get the agents and obstacles
+  // Obtener agentes y obstáculos
   await getBuildings();
   await getStreets();
   await getDestinations();
   await getCars();
 
-  // Draw the scene
+  // Dibujar la escena
   await drawScene(gl, programInfo, streetVao, streetBufferInfo, buildingVao, buildingBufferInfo, carVao, carBufferInfo, destinationVao, destinationBufferInfo);
 }
 
@@ -214,7 +302,12 @@ async function getCars() {
       if (cars.length === 0) {
         // Create new cars and add them to the cars array
         for (const car of result.positions) {
-          const newCar = new Car3D(car.id, [car.x, car.y, car.z]);
+          const newCar = new Car3D(
+            car.id,
+            [car.x, car.y, car.z],
+            [0, 0, 0],          // Rotación (sin cambios)
+            [0.01, 0.01, 0.01]           // Escala de 1
+          );
           cars.push(newCar);
         }
         // Log the cars array
@@ -264,9 +357,14 @@ async function getBuildings() {
 
       // Create new obstacles and add them to the obstacles array
       for (const building of result.positions) {
-        const newBuilding = new Building3D(building.id, [building.x, building.y, building.z])
-        buildings.push(newBuilding)
-      }
+        const newBuilding = new Building3D(
+          building.id,
+          [building.x, building.y-5, building.z],
+          [0, 0, 0],          // Rotación (sin cambios)
+          [1, 5, 1]     // Escala más pequeña
+        );
+        buildings.push(newBuilding);
+        }        
       // Log the obstacles array
       console.log("Buildings:", buildings)
     }

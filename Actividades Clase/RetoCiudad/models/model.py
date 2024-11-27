@@ -25,6 +25,7 @@ class RandomModel(Model):
             print(f"Map file not found at {map_file}")
             map_data = []
 
+
         # Set the grid dimensions based on the map size
         self.height = len(map_data)
         self.width = len(map_data[0]) if self.height > 0 else 0
@@ -72,6 +73,7 @@ class RandomModel(Model):
 
         # Check if there are enough destinations
         required_destinations = 4
+        print ("hola",self.destinations)
         if len(self.destinations) < required_destinations:
             print(f"Not enough destinations. Required: {required_destinations}, Found: {len(self.destinations)}")
             # Optionally, handle this case by adding default destinations or reducing the number of vehicles

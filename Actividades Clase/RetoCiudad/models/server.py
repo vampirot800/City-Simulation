@@ -151,13 +151,13 @@ def updateModel():
     if request.method == 'GET':
         if randomModel is None:
             return jsonify({"message": "Model not initialized."}), 400
-        try:
-            randomModel.step()
-            currentStep += 1
-            return jsonify({'message': f'Model updated to step {currentStep}.', 'currentStep': currentStep}), 200
-        except Exception as e:
-            print(f"Error during /update: {e}")
-            return jsonify({"message": f"Error during update: {e}"}), 500
+        # try:
+        randomModel.step()
+        currentStep += 1
+        return jsonify({'message': f'Model updated to step {currentStep}.', 'currentStep': currentStep}), 200
+        # except Exception as exxx:
+            # print(f"Error during /update: {exxx}")
+           # return jsonify({"message": f"Error during update: {exxx}"}), 500
 
 if __name__ == '__main__':
     # Run the Flask server on port 5175

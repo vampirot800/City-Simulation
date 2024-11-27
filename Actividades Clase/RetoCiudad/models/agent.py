@@ -151,6 +151,7 @@ class Car(Agent):
                     break
 
     def check_actual(self):
+        print ("hola", self.pos)
         for place in self.model.grid.get_cell_list_contents(self.pos):
             if isinstance(place, Road) and place.type == "intersection":
                 self.model.grid.move_agent(self, place.pos)
