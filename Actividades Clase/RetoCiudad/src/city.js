@@ -2,6 +2,7 @@
 
 import * as twgl from 'twgl.js';
 import GUI from 'lil-gui';
+import { m4 } from './starter_3D_lib';
 
 
 // Define the vertex shader code, using GLSL 3.00
@@ -40,7 +41,7 @@ class Building3D {
     this.position = position;
     this.rotation = rotation;
     this.scale = scale;
-    this.matrix = twgl.m4.create();
+    this.matrix = m4.identity();
   }
 }
 
@@ -50,7 +51,7 @@ class Street3D {
     this.position = position;
     this.rotation = rotation;
     this.scale = scale;
-    this.matrix = twgl.m4.create();
+    this.matrix = m4.identity();
   }
 }
 
@@ -60,7 +61,7 @@ class TrafficLight3D {
     this.position = position;
     this.rotation = rotation;
     this.scale = scale;
-    this.matrix = twgl.m4.create();
+    this.matrix = m4.identity();
   }
 }
 
@@ -70,7 +71,7 @@ class Car3D {
     this.position = position;
     this.rotation = rotation;
     this.scale = scale;
-    this.matrix = twgl.m4.create();
+    this.matrix = m4.identity();
   }
 }
 
@@ -80,7 +81,7 @@ class Destination3D {
     this.position = position;
     this.rotation = rotation;
     this.scale = scale;
-    this.matrix = twgl.m4.create();
+    this.matrix = m4.identity();
   }
 }
 // Define the car server URI
