@@ -10,15 +10,17 @@ const vsGLSL = `#version 300 es
 in vec4 a_position;
 in vec4 a_color;
 
+uniform vec4 u_color;
 uniform mat4 u_transforms;
 uniform mat4 u_matrix;
 
 out vec4 v_color;
 
 void main() {
-gl_Position = u_matrix * a_position;
-v_color = a_color;
+  gl_Position = u_matrix * a_position;
+  v_color = u_color;
 }
+
 `;
 
 // Define the fragment shader code, using GLSL 3.00
@@ -26,12 +28,20 @@ const fsGLSL = `#version 300 es
 precision highp float;
 
 in vec4 v_color;
+uniform bool v_useUniformColor;
+
+uniform vec4 u_color; // Uniform para color verde
 
 out vec4 outColor;
 
 void main() {
-outColor = v_color;
+  if (v_useUniformColor) {
+    outColor = u_color; // Usar color uniforme (verde)
+  } else {
+    outColor = v_color; // Usar color por atributo
+  }
 }
+
 `;
 
 // Define the Object3D class to represent 3D objects
@@ -201,9 +211,10 @@ async function main() {
   programInfo = twgl.createProgramInfo(gl, [vsGLSL, fsGLSL]);
 
   // Cargar modelos .obj
-  const [buildingModel, carModel] = await Promise.all([
+  const [buildingModel, carModel, flagModel] = await Promise.all([
     loadModelObj('../building.obj'), // Reemplaza con la ruta correcta
-    loadModelObj('../car.obj')        // Reemplaza con la ruta correcta
+    loadModelObj('../car.obj'),
+    loadModelObj('../flag.obj')       // Reemplaza con la ruta correcta
   ]);
 
   // Asignar los modelos cargados a las variables de buffer y VAO
@@ -211,18 +222,20 @@ async function main() {
   buildingVao = buildingModel.vao;
   carBufferInfo = carModel.bufferInfo;
   carVao = carModel.vao;
+  destinationBufferInfo = flagModel.bufferInfo;
+  destinationVao = flagModel.vao;
 
   // Generar datos para calles y destinos
   streetArrays = generateData(1);
-  destinationArrays = generateDataD(1);
+  // destinationArrays = generateDataD(1);
 
   // Crear buffer info para calles y destinos
   streetBufferInfo = twgl.createBufferInfoFromArrays(gl, streetArrays);
-  destinationBufferInfo = twgl.createBufferInfoFromArrays(gl, destinationArrays);
+  // destinationBufferInfo = twgl.createBufferInfoFromArrays(gl, destinationArrays);
 
   // Crear VAOs para calles y destinos
   streetVao = twgl.createVAOFromBufferInfo(gl, programInfo, streetBufferInfo);
-  destinationVao = twgl.createVAOFromBufferInfo(gl, programInfo, destinationBufferInfo);
+  // destinationVao = twgl.createVAOFromBufferInfo(gl, programInfo, destinationBufferInfo);
 
   // Configurar la interfaz de usuario
   setupUI();
@@ -306,7 +319,7 @@ async function getCars() {
             car.id,
             [car.x, car.y, car.z],
             [0, 0, 0],          // Rotación (sin cambios)
-            [0.01, 0.01, 0.01]           // Escala de 1
+            [0.02, 0.02, 0.02]           // Escala de 1
           );
           cars.push(newCar);
         }
@@ -410,11 +423,18 @@ async function getDestinations() {
       // Parse the response as JSON
       let result = await response.json();
 
-      // Create new destinations and add them to the destinations array
+      
+
       for (const destination of result.positions) {
-        const newDestination = new Destination3D(destination.id, [destination.x, destination.y, destination.z]);
+        const newDestination = new Destination3D(
+          destination.id,
+          [destination.x, destination.y-5, destination.z],
+          [0, 0, 0],          // Rotación (sin cambios)
+          [1, 1, 1]           // Escala adecuada para flag.obj
+        );
         destinations.push(newDestination);
       }
+
       // Log the destinations array
       console.log("Destinations:", destinations);
     }
@@ -529,7 +549,10 @@ function drawCars(distance, carVao, carBufferInfo, viewProjectionMatrix){
 
       // Set the uniforms for the car
       let uniforms = {
-          u_matrix: car.matrix,
+      u_matrix: car.matrix,
+      u_color: [1.0, 1.0, 0.0, 1.0],
+      u_useUniformColor: true // Activar el uso de color uniforme
+      
       }
 
       // Set the uniforms and draw the car
@@ -559,8 +582,11 @@ function drawStreets(distance, streetVao, streetBufferInfo, viewProjectionMatrix
 
     // Set the uniforms for the car
     let uniforms = {
-        u_matrix: street.matrix,
-    }
+      u_matrix: street.matrix,
+      u_color: [0.0, 0.0, 0.0, 1.0], 
+      u_useUniformColor: true // Activar el uso de color uniforme
+      
+      }
 
     // Set the uniforms and draw the car
     twgl.setUniforms(programInfo, uniforms);
@@ -569,30 +595,40 @@ function drawStreets(distance, streetVao, streetBufferInfo, viewProjectionMatrix
   }
 }  
 
+/*
+ * Draws the destinations using flag.obj with a uniform color (green).
+ * 
+ * @param {Number} distance - The distance for rendering.
+ * @param {WebGLVertexArrayObject} destinationVao - The VAO for destinations.
+ * @param {Object} destinationBufferInfo - The buffer info for destinations.
+ * @param {Float32Array} viewProjectionMatrix - The view-projection matrix.
+ */
 function drawDestinations(distance, destinationVao, destinationBufferInfo, viewProjectionMatrix) {
-  // Bind the vertex array object for destinations
+  // Vincular el VAO para destinos
   gl.bindVertexArray(destinationVao);
 
-  // Iterate over the destinations
+  // Iterar sobre los destinos
   for (const destination of destinations) {
 
-    // Create the destination's transformation matrix
-    const cube_trans = twgl.v3.create(...destination.position);
-    const cube_scale = twgl.v3.create(...destination.scale);
+    // Crear el vector de traslación para la posición del destino
+    const dest_trans = twgl.v3.create(...destination.position);
+    const dest_scale = twgl.v3.create(...destination.scale);
 
-    // Calculate the destination's matrix
-    destination.matrix = twgl.m4.translate(viewProjectionMatrix, cube_trans);
+    // Calcular la matriz de transformación del destino
+    destination.matrix = twgl.m4.translate(viewProjectionMatrix, dest_trans);
     destination.matrix = twgl.m4.rotateX(destination.matrix, destination.rotation[0]);
     destination.matrix = twgl.m4.rotateY(destination.matrix, destination.rotation[1]);
     destination.matrix = twgl.m4.rotateZ(destination.matrix, destination.rotation[2]);
-    destination.matrix = twgl.m4.scale(destination.matrix, cube_scale);
+    destination.matrix = twgl.m4.scale(destination.matrix, dest_scale);
 
-    // Set the uniforms for the destination
+    // Establecer los uniformes para el destino
     let uniforms = {
-        u_matrix: destination.matrix,
+      u_matrix: destination.matrix,
+      u_color: [0, 1, 0, 1], // Verde en RGBA
+      u_useUniformColor: true // Activar el uso de color uniforme
     }
 
-    // Set the uniforms and draw the destination
+    // Establecer los uniformes y dibujar el destino
     twgl.setUniforms(programInfo, uniforms);
     twgl.drawBufferInfo(gl, destinationBufferInfo);
   }
@@ -625,8 +661,11 @@ function drawBuildings(distance, buildingVao, buildingBufferInfo, viewProjection
 
       // Set the uniforms for the building
       let uniforms = {
-          u_matrix: building.matrix,
-      }
+        u_matrix: building.matrix,
+        u_color: [0.9, 0.9, 0.9, 1.0], // Gris claro,
+        u_useUniformColor: true // Activar el uso de color uniforme
+        
+        }
 
       // Set the uniforms and draw the building
       twgl.setUniforms(programInfo, uniforms);
