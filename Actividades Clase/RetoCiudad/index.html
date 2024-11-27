@@ -1,20 +1,23 @@
-<!-- index.html -->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>Mesa WebGL Visualization</title>
-  <!-- Link to your CSS files -->
-  <link rel="stylesheet" href="/styles.css">
-  <link rel="stylesheet" href="/main_page.css">
+
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="main_page.css">
 </head>
 <body>
   <div id="headerContainer">
     <h1>Mesa WebGL Visualization</h1>
   </div>
   <div id="elements"></div>
-  <!-- Include the main JavaScript file -->
-  <script type="module" src="/src/main.js"></script>
+
+  <canvas id="glCanvas" width="640" height="480"></canvas>
+
+
+  <script type="module" src="src/city.js"></script>
 </body>
 </html>
 

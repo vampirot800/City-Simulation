@@ -1,0 +1,26 @@
+{
+    "A":{"B":"Up","C":"Right","k":"Right","l":"Right"},
+
+    "B":{"C":"Right","D":"Up"},
+
+
+    "C":{"D":"Left", "J": "Up"},
+
+    "D":{"E":"Left","J":"Up","d":"Up","e":"Up"},
+
+    "E":{"F":"Down","G":"Left"},
+
+    "F":{"B":"Right","A":"Down","j":"Down"},
+
+    "G":{"I":"Left","g":"Up"},
+
+    "H":{"A":"Down","F":"Right","i":"Down"},
+
+    "I":{"H":"Right","A":"Down"},
+
+    "J":{"K":"Down","I":"Left","a":"Left","c":"Down","h":"Left"},
+    
+    "K":{"E":"Down","I":"Left","b":"Left","f":"Down","h":"Left"}
+    
+
+}

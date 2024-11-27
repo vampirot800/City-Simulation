@@ -1,58 +1,164 @@
-# models/server.py
-from flask import Flask, jsonify
-from flask_cors import CORS
-from model import CityModel
-from agent import *
+# server.py
+from flask import Flask, request, jsonify, render_template
+from flask_cors import CORS, cross_origin
+from model import RandomModel
+from agent import Obstacle, Road, Traffic_Light, Car, Destination
+import os
 
-app = Flask(__name__)
-CORS(app)
+# Initialize global variables
+randomModel = None
+currentStep = 0
 
-# Agent portrayal function
-def agent_portrayal(agent):
-    portrayal = {
-        'id': agent.unique_id,
-        'Model': agent.model_type,
-        'Position': [agent.pos[0], agent.pos[1]],
-        'Rotation': agent.rotation,
-        'Scale': agent.scale,
-    }
+# Initialize Flask app
+app = Flask(__name__, static_folder='static', template_folder='templates')
+CORS(app, origins=['http://localhost'])
 
-    if isinstance(agent, Car):
-        portrayal['Color'] = [1, 0, 0, 1]
-    elif isinstance(agent, Traffic_Light):
-        portrayal['Color'] = [0, 1, 0, 1] if agent.state else [1, 0, 0, 1]
-    elif isinstance(agent, Destination):
-        portrayal['Color'] = [0, 1, 1, 1]
-    elif isinstance(agent, Obstacle):
-        portrayal['Color'] = [0.3, 0.3, 0.3, 1]
-    elif isinstance(agent, Road):
-        portrayal['Color'] = [0.5, 0.5, 0.5, 1]
-    else:
-        portrayal['Color'] = [1, 1, 1, 1]
+# Optional: Route to serve index.html
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-    return portrayal
+# Route to initialize the model
+@app.route('/init', methods=['POST'])
+@cross_origin()
+def initModel():
+    global currentStep, randomModel
 
-class WebGLVisualization:
-    def render(self, model):
-        grid_state = []
-        for (contents, x, y) in model.grid.coord_iter():
-            for agent in contents:
-                portrayal = agent_portrayal(agent)
-                if portrayal:
-                    grid_state.append(portrayal)
-        return grid_state
+    if request.method == 'POST':
+        try:
+            # Optional: Parse JSON data if needed
+            data = request.get_json()
+            # You can use 'data' to customize model initialization if required
 
-# Create an instance of your model
-model_instance = CityModel(N=5)
-webgl_vis = WebGLVisualization()
+            currentStep = 0
+            randomModel = RandomModel()
+            print("Model initialized successfully from map file.")
+            return jsonify({"message": "Model initialized from map file."}), 200
+        except Exception as e:
+            print(f"Error during initialization: {e}")
+            return jsonify({"message": f"Error initializing the model: {e}"}), 500
 
-# Endpoint to get agent data
-@app.route('/get_agents')
-def get_agents():
-    # Advance the model by one step
-    model_instance.step()
-    model_state = webgl_vis.render(model_instance)
-    return jsonify(model_state)
+# Route to get streets
+@app.route('/getStreets', methods=['GET'])
+@cross_origin()
+def getStreets():
+    global randomModel
+
+    if request.method == 'GET':
+        if randomModel is None:
+            return jsonify({"message": "Model not initialized."}), 400
+        try:
+            streetPositions = [
+                {"id": str(a.unique_id), "x": x, "y": -4, "z": z}
+                for (contents, (x, z)) in randomModel.grid.coord_iter()
+                for a in contents
+                if isinstance(a, Road)
+            ]
+            return jsonify({'positions': streetPositions}), 200
+        except Exception as e:
+            print(f"Error in /getStreets: {e}")
+            return jsonify({"message": f"Error with street positions: {e}"}), 500
+
+# Route to get buildings
+@app.route('/getBuildings', methods=['GET'])
+@cross_origin()
+def getBuildings():
+    global randomModel
+
+    if request.method == 'GET':
+        if randomModel is None:
+            return jsonify({"message": "Model not initialized."}), 400
+        try:
+            buildingPositions = [
+                {"id": str(a.unique_id), "x": x, "y": 1, "z": z}
+                for (contents, (x, z)) in randomModel.grid.coord_iter()
+                for a in contents
+                if isinstance(a, Obstacle)
+            ]
+            return jsonify({'positions': buildingPositions}), 200
+        except Exception as e:
+            print(f"Error in /getBuildings: {e}")
+            return jsonify({"message": f"Error with building positions: {e}"}), 500
+
+# Route to get destinations
+@app.route('/getDestinations', methods=['GET'])
+@cross_origin()
+def getDestinations():
+    global randomModel
+
+    if request.method == 'GET':
+        if randomModel is None:
+            return jsonify({"message": "Model not initialized."}), 400
+        try:
+            destinationPositions = [
+                {"id": str(a.unique_id), "x": x, "y": 1, "z": z}
+                for (contents, (x, z)) in randomModel.grid.coord_iter()
+                for a in contents
+                if isinstance(a, Destination)
+            ]
+            return jsonify({'positions': destinationPositions}), 200
+        except Exception as e:
+            print(f"Error in /getDestinations: {e}")
+            return jsonify({"message": f"Error with destination positions: {e}"}), 500
+
+# Route to get traffic lights
+@app.route('/getTrafficLights', methods=['GET'])
+@cross_origin()
+def getTrafficLights():
+    global randomModel
+
+    if request.method == 'GET':
+        if randomModel is None:
+            return jsonify({"message": "Model not initialized."}), 400
+        try:
+            trafficLightPositions = [
+                {"id": str(a.unique_id), "x": x, "y": 1, "z": z}
+                for (contents, (x, z)) in randomModel.grid.coord_iter()
+                for a in contents
+                if isinstance(a, Traffic_Light)
+            ]
+            return jsonify({'positions': trafficLightPositions}), 200
+        except Exception as e:
+            print(f"Error in /getTrafficLights: {e}")
+            return jsonify({"message": f"Error with traffic light positions: {e}"}), 500
+
+# Route to get cars
+@app.route('/getCars', methods=['GET'])
+@cross_origin()
+def getCars():
+    global randomModel
+
+    if request.method == 'GET':
+        if randomModel is None:
+            return jsonify({"message": "Model not initialized."}), 400
+        try:
+            carPositions = [
+                {"id": str(a.unique_id), "x": x, "y": -4, "z": z}
+                for (contents, (x, z)) in randomModel.grid.coord_iter()
+                for a in contents
+                if isinstance(a, Car)
+            ]
+            return jsonify({'positions': carPositions}), 200
+        except Exception as e:
+            print(f"Error in /getCars: {e}")
+            return jsonify({"message": f"Error with car positions: {e}"}), 500
+
+# Route to update the model
+@app.route('/update', methods=['GET'])
+@cross_origin()
+def updateModel():
+    global currentStep, randomModel
+    if request.method == 'GET':
+        if randomModel is None:
+            return jsonify({"message": "Model not initialized."}), 400
+        try:
+            randomModel.step()
+            currentStep += 1
+            return jsonify({'message': f'Model updated to step {currentStep}.', 'currentStep': currentStep}), 200
+        except Exception as e:
+            print(f"Error during /update: {e}")
+            return jsonify({"message": f"Error during update: {e}"}), 500
 
 if __name__ == '__main__':
-    app.run(port=8521)
+    # Run the Flask server on port 5175
+    app.run(host="localhost", port=5175, debug=True)
