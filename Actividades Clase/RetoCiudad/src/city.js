@@ -66,14 +66,16 @@ class Street3D {
 }
 
 class TrafficLight3D {
-  constructor(id, position=[0,0,0], rotation=[0,0,0], scale=[1,1,1], color=[1,1,1]){
+  constructor(id, position = [0, 0, 0], rotation = [0, 0, 0], scale = [1, 1, 1], color = [0, 1, 0]) {
     this.id = id;
     this.position = position;
     this.rotation = rotation;
     this.scale = scale;
+    this.color = color; // Guardar el color (verde por defecto)
     this.matrix = m4.identity();
   }
 }
+
 
 class Car3D {
   constructor(id, position=[0,0,0], rotation=[0,0,0], scale=[1,1,1]){
@@ -109,7 +111,7 @@ let gl, programInfo, streetArrays, buildingArrays, carArrays, destinationArrays,
 carBufferInfo, destinationBufferInfo, trafficLightBufferInfo, streetVao, buildingVao, carVao, destinationVao, trafficLightVao;
 
 // Define the camera position
-let cameraPosition = {x:0, y:0, z:0};
+let cameraPosition = {x:15, y:10, z:15};
 
 // Initialize the frame count
 let frameCount = 0;
@@ -217,7 +219,7 @@ async function main() {
     loadModelObj('../flag.obj'),
     loadModelObj('../light.obj')          // Reemplaza con la ruta correcta
   ]);
-  
+
   console.log(trafficLightModel)
 
 
@@ -454,47 +456,34 @@ async function getDestinations() {
 
 async function getTrafficLights() {
   try {
-    // Send a GET request to the server to retrieve the traffic light states
+    // Enviar una solicitud GET al servidor para obtener las posiciones de los semáforos
     let response = await fetch(agent_server_uri + "getTrafficLights");
 
-    // Check if the response was successful
+    // Verificar si la respuesta fue exitosa
     if (response.ok) {
-      // Parse the response as JSON
+      // Parsear la respuesta como JSON
       let result = await response.json();
 
-      // Check if the trafficLights array is empty
       if (trafficLights.length === 0) {
-        // Create new traffic lights and add them to the trafficLights array
-        for (const light of result.positions) {
-          const newTrafficLight = new TrafficLight3D(
-            light.id,
-            [light.x, light.y, light.z, light.a], // Position
-            [light.r, light.g, light.b, light.a] // Initial color
-          );
-          trafficLights.push(newTrafficLight);
-        }
-        // Log the trafficLights array
-        console.log("Traffic Lights:", trafficLights);
+      // Crear nuevos semáforos y agregarlos al array trafficLights
+      for (const light of result.positions) {
+        const newTrafficLight = new TrafficLight3D(
+          [light.x, light.y-5, light.z],
+          [0, 0, 0],          // Rotación (sin cambios)
+          [1, 5, 1]     // Escala más pequeña
+        );
+        trafficLights.push(newTrafficLight);
 
-      } else {
-        // Update the properties of existing traffic lights
-        for (const light of result.positions) {
-          const currentLight = trafficLights.find((object3d) => object3d.id === light.id);
-
-          // Check if the traffic light exists in the trafficLights array
-          if (currentLight !== undefined) {
-            // Update the traffic light's position and color
-            currentLight.position = [light.x, light.y, light.z];
-            currentLight.color = [light.r, light.g, light.b, light.a];
-          }
-        }
+      // Loguear los semáforos cargados
+      console.log("Traffic Lights:", trafficLights);
+        }      
       }
     }
-
-  } catch (error) {
-    // Log any errors that occur during the request
-    console.log("Error fetching traffic lights:", error);
-  }
+    
+    } catch (error) {
+      // Log any errors that occur during the request
+      console.error("Error fetching traffic lights:", error);
+    }
 }
 
 /*
@@ -561,7 +550,7 @@ async function drawScene(gl, programInfo, streetVao, streetBufferInfo, buildingV
 
     drawDestinations(distance, destinationVao, destinationBufferInfo, viewProjectionMatrix)
 
-    drawTrafficLights(distance, trafficLightBufferInfo, trafficLightVao, viewProjectionMatrix)
+    drawTrafficLights(distance, trafficLightVao, trafficLightBufferInfo , viewProjectionMatrix)
     // Increment the frame count
     frameCount++
 
@@ -748,24 +737,24 @@ function drawTrafficLights(distance, trafficLightVao, trafficLightBufferInfo, vi
     trafficLight.matrix = twgl.m4.rotateZ(trafficLight.matrix, trafficLight.rotation[2]);
     trafficLight.matrix = twgl.m4.scale(trafficLight.matrix, cube_scale);
 
-    const newColorData = [];
-    for (let i = 0; i < trafficLightBufferInfo.numElements; i++) {
-      newColorData.push(...trafficLight.color); // Use the new traffic light color
-    }
+    // const newColorData = [];
+    // for (let i = 0; i < trafficLightBufferInfo.numElements; i++) {
+    //   newColorData.push(...trafficLight.color); // Use the new traffic light color
+    // }
 
-    twgl.setAttribInfoBufferFromArray(
-      gl,
-      trafficLightBufferInfo.attribs.a_color,
-      newColorData
-    );
+    // twgl.setAttribInfoBufferFromArray(
+    //   gl,
+    //   trafficLightBufferInfo.attribs.a_color,
+    //   newColorData
+    // );
 
-    const uniforms = {
-      u_matrix: trafficLight.matrix,
-      u_color: [1.0, 0.0, 0.0, 1.0], // Red
-      u_useUniformColor: true
-    };
+    // const uniforms = {
+    //   u_matrix: trafficLight.matrix,
+    //   u_color: [1.0, 0.0, 0.0, 1.0], // Red
+    //   u_useUniformColor: true
+    // };
 
-    twgl.setUniforms(programInfo, uniforms);
+    // twgl.setUniforms(programInfo, uniforms);
     twgl.drawBufferInfo(gl, trafficLightBufferInfo);
   }
 }
