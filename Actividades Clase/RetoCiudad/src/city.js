@@ -5,6 +5,8 @@ import GUI from 'lil-gui';
 // Remueve la importación de m4 desde starter_3D_lib
 // import { m4 } from './starter_3D_lib';
 
+const STATS_FREQUENCY = 60;
+
 // Define los shaders
 const vsGLSL = `#version 300 es
 in vec4 a_position;
@@ -625,6 +627,69 @@ async function update() {
   }
 }
 
+/**
+ * Obtiene la cantidad de coches actualmente en el grid desde el servidor.
+ * @returns {Number|null} Cantidad de coches en el grid o null si hay un error.
+ */
+ async function getCarsInGrid() {
+  try {
+      let response = await fetch(agent_server_uri + "countCarsInGrid");
+      if (response.ok) {
+          let data = await response.json();
+          console.log("Cantidad de coches en el grid:", data.cars_in_grid);
+          return data.cars_in_grid;
+      } else {
+          console.error(`Fallo al obtener la cantidad de coches en el grid. Estado: ${response.status} ${response.statusText}`);
+          const errorText = await response.text();
+          console.error("Texto de la respuesta:", errorText);
+          return null;
+      }
+  } catch (error) {
+      console.error("Error al obtener la cantidad de coches en el grid:", error);
+      return null;
+  }
+}
+
+/**
+* Obtiene la cantidad de coches que han llegado a su destino desde el servidor.
+* @returns {Number|null} Cantidad de coches que han llegado a su destino o null si hay un error.
+*/
+async function getCarsReachedDestination() {
+  try {
+      let response = await fetch(agent_server_uri + "countCarsReachedDestination");
+      if (response.ok) {
+          let data = await response.json();
+          console.log("Cantidad de coches que han llegado al destino:", data.cars_reached_destination);
+          return data.cars_reached_destination;
+      } else {
+          console.error(`Fallo al obtener la cantidad de coches que han llegado al destino. Estado: ${response.status} ${response.statusText}`);
+          const errorText = await response.text();
+          console.error("Texto de la respuesta:", errorText);
+          return null;
+      }
+  } catch (error) {
+      console.error("Error al obtener la cantidad de coches que han llegado al destino:", error);
+      return null;
+  }
+}
+
+/**
+* Recolecta estadísticas de la simulación.
+*/
+async function collectStatistics() {
+  const carsInGrid = await getCarsInGrid();
+  const carsReachedDestination = await getCarsReachedDestination();
+
+  // Mostrar en la consola
+  console.log(`Estadísticas de la Simulación - Coches en el Grid: ${carsInGrid}, Coches que Llegaron al Destino: ${carsReachedDestination}`);
+
+  // Actualizar elementos HTML (si tienes)
+  /*
+  document.getElementById('carsInGrid').innerText = `Coches en el Grid: ${carsInGrid}`;
+  document.getElementById('carsReachedDestination').innerText = `Coches que Llegaron al Destino: ${carsReachedDestination}`;
+  */
+}
+
 /*
  * Dibuja la escena renderizando los agentes y obstáculos.
  */
@@ -661,6 +726,12 @@ async function drawScene() {
 
   // Incrementar el conteo de frames
   frameCount++;
+
+  // Recolectar estadísticas cada STATS_FREQUENCY frames
+  if (frameCount % STATS_FREQUENCY === 0) {
+    frameCount = 0;
+    await collectStatistics();
+  }
 
   // Actualizar la escena cada 30 frames
   if (frameCount % 30 === 0) {

@@ -159,6 +159,14 @@ class Destination(Agent):
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)  # Initialize the base Agent class
 
+    def finishedAgent(self):
+
+        cell_contents = self.model.grid.get_cell_list_contents(self.pos)
+
+        for agents in cell_contents:
+            if isinstance(agent, Car) and Agent.destination == self:
+                self.model.finishedAgents += 1
+
 # Define an obstacle agent that blocks car movement
 class Obstacle(Agent):
     """

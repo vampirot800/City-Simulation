@@ -76,6 +76,8 @@ class CityModel(Model):
         self.memo_count = 0  # Count memoized routes used
         self.no_memo_count = 0  # Count routes calculated without memoization
         self.cars_reached_destination = 0  # Track the number of cars that reached their destination
+        self.activeAgents = 0
+        self.finishedAgents = 0
 
         self.step_tracker = {i: 0 for i in range(1, steps_dist_max + 1)}  # Track step distribution
 
@@ -150,6 +152,9 @@ class CityModel(Model):
         """
         self.schedule.step()  # Advance all agents by one step
         self.datacollector.collect(self)  # Collect data from the model
+        self.count_cars_in_grid()
+        self.count_cars_reached_destination()
+    
 
         # Add new cars every 10 steps
         if self.schedule.steps % 10 == 0:
@@ -227,3 +232,80 @@ class CityModel(Model):
         """
         if steps in self.step_tracker:
             self.step_tracker[steps] += 1
+    
+    def count_cars_in_grid(self):
+        """
+        Cuenta la cantidad de agentes Car en el grid.
+        """ 
+        self.activeAgents = 0
+        for contents, (x,y) in self.grid.coord_iter():
+            if any (isinstance(agent,Car) for agent in contents):
+                self.activeAgents += 1
+            print(f"Active agents: {self.activeAgents}")
+
+    def count_cars_reached_destination(self):
+        """
+        Retorna la cantidad de coches que han llegado a su destino.
+        """
+        return self.cars_reached_destination
+
+
+    def get_statistics(self):
+        """
+        Retorna estadísticas de la simulación.
+        """
+        return {
+            "step": self.schedule.steps,
+            "cars_in_grid": self.count_cars_in_grid(),
+            "cars_reached_destination": self.count_cars_reached_destination()
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

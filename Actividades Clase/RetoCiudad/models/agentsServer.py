@@ -177,3 +177,29 @@ def get_graph_connections():
 if __name__ == '__main__':
     # Ejecutar el servidor Flask en el puerto 8585
     app.run(host="0.0.0.0", port=8585, debug=True)
+
+@app.route('/countCarsInGrid', methods=['GET'])
+@cross_origin()
+def count_cars_in_grid():
+    global city_model
+    try:
+        if city_model is None:
+            return jsonify({"message": "Modelo no inicializado."}), 400
+        count = city_model.count_cars_in_grid()
+        return jsonify({'cars_in_grid': count}), 200
+    except Exception as e:
+        print(f"Error al contar coches en el grid: {e}")
+        return jsonify({"message": "Error al contar coches en el grid", "error": str(e)}), 500
+
+@app.route('/countCarsReachedDestination', methods=['GET'])
+@cross_origin()
+def count_cars_reached_destination():
+    global city_model
+    try:
+        if city_model is None:
+            return jsonify({"message": "Modelo no inicializado."}), 400
+        count = city_model.count_cars_reached_destination()
+        return jsonify({'cars_reached_destination': count}), 200
+    except Exception as e:
+        print(f"Error al contar coches que han llegado a destino: {e}")
+        return jsonify({"message": "Error al contar coches que han llegado a destino", "error": str(e)}), 500
