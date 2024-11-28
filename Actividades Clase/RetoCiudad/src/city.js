@@ -214,10 +214,11 @@ async function main() {
 
   // Cargar modelos .obj
   const [buildingModel, carModel, flagModel, trafficLightModel] = await Promise.all([
-    loadModelObj('../building.obj'), // Reemplaza con la ruta correcta
+    loadModelObj('../building.obj'),
     loadModelObj('../car.obj'),
     loadModelObj('../flag.obj'),
-    loadModelObj('../light.obj')      // Reemplaza con la ruta correcta
+    loadModelObj('../light.obj'),  
+    loadModelObj('../road.obj')
   ]);
 
   // Asignar los modelos cargados a las variables de buffer y VAO
@@ -309,7 +310,7 @@ async function getCars() {
         for (const car of result.cars) {
           const newCar = new Car3D(
             car.id,
-            [car.x, -3, car.z],        // Posición ajustada
+            [car.x, 3, car.z],        // Posición ajustada
             [0, 0, 0],                 // Rotación (sin cambios)
             [0.02, 0.02, 0.02]         // Escala
           );
@@ -363,9 +364,9 @@ async function getBuildings() {
       for (const building of result.buildings) {
         const newBuilding = new Building3D(
           building.id,
-          [building.x, -1.5, building.z], // Posición ajustada
+          [building.x, -3, building.z], // Posición ajustada
           [0, 0, 0],                       // Rotación (sin cambios)
-          [1, 5, 1]                        // Escala
+          [1, 4, 1]                        // Escala
         );
         buildings.push(newBuilding);
       }
@@ -437,7 +438,7 @@ async function getDestinations() {
       for (const destination of result.destinations) {
         const newDestination = new Destination3D(
           destination.id,
-          [destination.x, -1, destination.z], // Posición ajustada
+          [destination.x, -3, destination.z], // Posición ajustada
           [0, 0, 0],                           // Rotación (sin cambios)
           [1, 1, 1]                            // Escala adecuada para flag.obj
         );
@@ -479,7 +480,7 @@ async function getTrafficLights() {
 
           const newTrafficLight = new TrafficLight3D(
             light.id,
-            [light.x, 0.5, light.z], // Posición ajustada
+            [light.x, -1.1, light.z], // Posición ajustada
             [0, 0, 0],               // Rotación (sin cambios)
             [0.3, 0.3, 0.3],               // Escala
             color                    // Color basado en el estado
@@ -528,8 +529,6 @@ async function getTrafficLights() {
     console.error("Error fetching /getTrafficLights:", error);
   }
 }
-
-
 /*
  * Actualiza las posiciones de los coches enviando una solicitud al servidor.
  */
@@ -750,7 +749,13 @@ function drawTrafficLights(trafficLightVao, trafficLightBufferInfo, viewProjecti
     twgl.m4.scale(trafficLight.matrix, trafficLight.scale, trafficLight.matrix);
     twgl.m4.multiply(viewProjectionMatrix, trafficLight.matrix, trafficLight.matrix);
 
-    // Establecer los uniformes para el semáforo
+    if (trafficLight.state == true) {
+      trafficLight.color = [1.0,0.0,0.0,1.0];
+    } else if (trafficLight.state == false) {
+      trafficLight.color = [0.0,1.0,0.0,1.0];
+    }
+
+    //Establecer los uniformes para el semáforo
     let uniforms = {
       u_matrix: trafficLight.matrix,
       u_color: trafficLight.color, // Color basado en el estado
