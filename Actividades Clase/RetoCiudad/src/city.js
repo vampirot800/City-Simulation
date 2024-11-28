@@ -383,6 +383,7 @@ async function getBuildings() {
   }
 }
 
+
 /*
  * Obtiene las posiciones actuales de todas las calles desde el servidor.
  */
@@ -527,6 +528,7 @@ async function getTrafficLights() {
     console.error("Error fetching /getTrafficLights:", error);
   }
 }
+
 
 /*
  * Actualiza las posiciones de los coches enviando una solicitud al servidor.

@@ -112,6 +112,7 @@ class CityModel(Model):
                 if col in ["v", "^", ">", "<"]:
                     agent = Road(pos, self, CityModel.map_data[col])
                     self.grid.place_agent(agent, pos)
+
                     if not graph_created:
                         self.road_graph_creator(lines, pos)
                         graph_created = True
@@ -122,6 +123,8 @@ class CityModel(Model):
                 elif col == "D":
                     self.grid.place_agent(Destination(f"dest_{r}_{c}", self), pos)
                     self.destinations.append(pos)
+
+                    print(f"dest_{r}_{c}")
 
     def _initialize_traffic_light(self, pos, char):
         """

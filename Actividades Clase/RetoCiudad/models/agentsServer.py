@@ -65,6 +65,9 @@ def get_streets():
             if isinstance(agent, Road):
                 x, y = agent.pos
                 streets.append({"id": agent.unique_id, "x": x, "z": y})
+
+
+                
         return jsonify({'streets': streets}), 200
     except Exception as e:
         print(f"Error al obtener calles: {e}")
@@ -75,12 +78,20 @@ def get_streets():
 def get_buildings():
     global city_model
     try:
-        buildings = []
-        for agent in city_model.schedule.agents:
-            if isinstance(agent, Obstacle):
-                x, y = agent.pos
-                buildings.append({"id": agent.unique_id, "x": x, "z": y})
-        return jsonify({'buildings': buildings}), 200
+        # buildings = []
+        # for agent in city_model.schedule.agents:
+        #     if isinstance(agent, Obstacle):
+        #         x, y = agent.pos
+        #         buildings.append({"id": agent.unique_id, "x": x, "z": y})
+        obstacles = [
+                {"id": str(b.unique_id),"x": x, "y": 1, "z": z}
+                for a, (x,z) in city_model.grid.coord_iter()
+                for b in a
+                if isinstance(b, Obstacle)]
+
+        print (obstacles)
+
+        return jsonify({'buildings': obstacles}), 200
     except Exception as e:
         print(f"Error al obtener edificios: {e}")
         return jsonify({"message": "Error al obtener edificios", "error": str(e)}), 500
@@ -90,11 +101,21 @@ def get_buildings():
 def get_destinations():
     global city_model
     try:
-        destinations = []
-        for agent in city_model.schedule.agents:
-            if isinstance(agent, Destination):
-                x, y = agent.pos
-                destinations.append({"id": agent.unique_id, "x": x, "z": y})
+        # destinations = []
+        # for agent in city_model.schedule.agents:
+        #     print (type (agent))
+        #     if isinstance(agent, Destination):
+        #         x, y = agent.pos
+        #         destinations.append({"id": agent.unique_id, "x": x, "z": y})
+
+        destinations = [
+                {"id": str(b.unique_id),"x": x, "y": 1, "z": z}
+                for a, (x,z) in city_model.grid.coord_iter()
+                for b in a
+                if isinstance(b, Destination)]
+
+        print (destinations)
+
         return jsonify({'destinations': destinations}), 200
     except Exception as e:
         print(f"Error al obtener destinos: {e}")

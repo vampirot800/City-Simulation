@@ -34,7 +34,7 @@ class TrafficLight(Agent):
         self.current_time = (self.current_time + 1) % self.total_cycle  # Increment time within cycle
         self.state = self._get_state_from_time(self.current_time)  # Update the state
         self.is_green = self.state == "green"  # Update boolean state
-        print(f"Traffic Light {self.unique_id} changed to {self.state}")
+        # print(f"Traffic Light {self.unique_id} changed to {self.state}")
 
     def _get_state_from_time(self, time_step):
         """
@@ -144,8 +144,9 @@ class Car(Agent):
             self.model.grid.move_agent(self, next_move)  # Move the car to the next position
             self.position = next_move  # Update the car's position
             self.route_index += 1  # Move to the next step in the route
-            print(f"Car {self.unique_id} moved to {self.position}")
+            # print(f"Car {self.unique_id} moved to {self.position}")
         else:
+            
             # If movement is not possible, increment the time stopped
             self.time_stopped += 1
             print(f"Car {self.unique_id} stopped at {self.position}")
