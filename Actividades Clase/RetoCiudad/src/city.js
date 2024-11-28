@@ -283,6 +283,9 @@ async function initAgentsModel() {
 /*
  * Obtiene las posiciones actuales de todos los coches desde el servidor.
  */
+/*
+ * Obtiene las posiciones actuales de todos los coches desde el servidor.
+ */
 async function getCars() {
   try {
     // Enviar una solicitud GET al servidor para obtener las posiciones de los coches
@@ -308,12 +311,35 @@ async function getCars() {
       if (cars.length === 0) {
         // Crear nuevos coches y agregarlos al array de coches
         for (const car of result.cars) {
+          // Determinar la rotación basada en la dirección
+          let rotation;
+          switch (car.direction) {
+            case "Up":
+              rotation = [0, 0, 0];
+              break;
+            case "Down":
+              rotation = [0, Math.PI, 0];
+              break;
+            case "Left":
+              rotation = [0, -Math.PI / 2, 0];
+              break;
+            case "Right":
+              rotation = [0, Math.PI / 2, 0];
+              break;
+            case "Diagonal":
+              rotation = [0, Math.PI / 4, 0];
+              break;
+            default:
+              rotation = [0, 0, 0];
+          }
+
           const newCar = new Car3D(
             car.id,
-            [car.x, 3, car.z],        // Posición ajustada
-            [0, 0, 0],                 // Rotación (sin cambios)
+            [car.x, -3, car.z],        // Posición ajustada (y consistente)
+            rotation,                   // Rotación basada en dirección
             [0.02, 0.02, 0.02]         // Escala
           );
+
           cars.push(newCar);
         }
         // Loguear el array de coches después de la inicialización
@@ -323,29 +349,73 @@ async function getCars() {
         for (const car of result.cars) {
           const current_car = cars.find((object3d) => object3d.id === car.id);
 
-          // Verificar si el coche existe en el array de coches
           if (current_car !== undefined) {
             // Actualizar la posición del coche
             current_car.position = [car.x, -3, car.z];
+
+            // Actualizar la rotación basada en la dirección
+            switch (car.direction) {
+              case "Up":
+                current_car.rotation = [0, 0, 0];
+                break;
+              case "Down":
+                current_car.rotation = [0, Math.PI, 0];
+                break;
+              case "Left":
+                current_car.rotation = [0, -Math.PI / 2, 0];
+                break;
+              case "Right":
+                current_car.rotation = [0, Math.PI / 2, 0];
+                break;
+              case "Diagonal":
+                current_car.rotation = [0, Math.PI / 4, 0];
+                break;
+              default:
+                current_car.rotation = [0, 0, 0];
+            }
           } else {
-            // Coche no encontrado en el array, posiblemente agregarlo
+            // Coche no encontrado en el array, agregarlo
             console.warn(`Car with id ${car.id} not found in cars array. Adding new car.`);
-            const newCar = new Car3D(car.id, [car.x, -3, car.z]);
+
+            // Determinar la rotación basada en la dirección
+            let rotation;
+            switch (car.direction) {
+              case "Up":
+                rotation = [0, 0, 0];
+                break;
+              case "Down":
+                rotation = [0, Math.PI, 0];
+                break;
+              case "Left":
+                rotation = [0, -Math.PI / 2, 0];
+                break;
+              case "Right":
+                rotation = [0, Math.PI / 2, 0];
+                break;
+              case "Diagonal":
+                rotation = [0, Math.PI / 4, 0];
+                break;
+              default:
+                rotation = [0, 0, 0];
+            }
+
+            const newCar = new Car3D(
+              car.id,
+              [car.x, -3, car.z],
+              rotation,
+              [0.02, 0.02, 0.02]
+            );
+
             cars.push(newCar);
           }
-        }
+        }}
       }
-    } else {
-      // La respuesta no fue exitosa, loguear el estado y la respuesta
-      console.error(`Failed to fetch /getCars. Status: ${response.status} ${response.statusText}`);
-      const errorText = await response.text();
-      console.error("Response text:", errorText);
+    } catch (error) {
+      // Loguear cualquier error que ocurra durante la solicitud
+      console.error("Error fetching /getCars:", error);
     }
-  } catch (error) {
-    // Loguear cualquier error que ocurra durante la solicitud
-    console.error("Error fetching /getCars:", error);
-  }
 }
+
 
 /*
  * Obtiene las posiciones actuales de todos los edificios desde el servidor.
@@ -605,7 +675,15 @@ async function drawScene() {
 /*
  * Dibuja los coches.
  */
+/*
+ * Dibuja los coches.
+ */
 function drawCars(carVao, carBufferInfo, viewProjectionMatrix) {
+  if (cars.length === 0) {
+    console.log("No hay coches para dibujar.");
+    return;
+  }
+
   // Vincular el VAO para coches
   gl.bindVertexArray(carVao);
 
@@ -630,8 +708,10 @@ function drawCars(carVao, carBufferInfo, viewProjectionMatrix) {
     // Establecer los uniformes y dibujar el coche
     twgl.setUniforms(programInfo, uniforms);
     twgl.drawBufferInfo(gl, carBufferInfo);
+    console.log(`Coche dibujado: ID=${car.id}, Rotación=${car.rotation}`);
   }
 }
+
 
 /*
  * Dibuja las calles.
