@@ -97,7 +97,7 @@ class Destination3D {
   }
 }
 // Define the car server URI
-const agent_server_uri = "http://localhost:5175/";
+const agent_server_uri = "http://localhost:8585/";
 
 // Initialize arrays to store agents and obstacles
 const cars = [];
@@ -722,8 +722,6 @@ function drawTrafficLights(distance, trafficLightVao, trafficLightBufferInfo, vi
     console.error("Traffic Light VAO is not initialized.");
     return;  // Early return if the VAO is not available.
   }
-
-  console.log("Traffic Light VAO is initialized:", trafficLightVao);  // Debugging log
 
   gl.bindVertexArray(trafficLightVao);
 
