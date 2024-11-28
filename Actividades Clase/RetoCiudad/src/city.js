@@ -480,7 +480,7 @@ async function getTrafficLights() {
             light.id,
             [light.x, 0.5, light.z], // Posición ajustada
             [0, 0, 0],               // Rotación (sin cambios)
-            [1, 1, 1],               // Escala
+            [0.3, 0.3, 0.3],               // Escala
             color                    // Color basado en el estado
           );
           trafficLights.push(newTrafficLight);
