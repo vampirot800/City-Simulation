@@ -134,9 +134,9 @@ class Car(Agent):
 
         # Check if the next cell is occupied by a car or blocked by a traffic light
         for agent in self.model.grid.get_cell_list_contents([next_move]):
-            if isinstance(agent, CarAgent):
+            if isinstance(agent, Car):
                 can_move = False  # Cannot move if another car is present
-            elif isinstance(agent, TrafficLightAgent):
+            elif isinstance(agent, TrafficLight):
                 if agent.state == "red":
                     can_move = False  # Cannot move if traffic light is red
 

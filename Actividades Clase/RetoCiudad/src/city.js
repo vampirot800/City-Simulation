@@ -2,16 +2,15 @@
 
 import * as twgl from 'twgl.js';
 import GUI from 'lil-gui';
-import { m4 } from './starter_3D_lib';
+// Remueve la importación de m4 desde starter_3D_lib
+// import { m4 } from './starter_3D_lib';
 
-
-// Define the vertex shader code, using GLSL 3.00
+// Define los shaders
 const vsGLSL = `#version 300 es
 in vec4 a_position;
 in vec4 a_color;
 
 uniform vec4 u_color;
-uniform mat4 u_transforms;
 uniform mat4 u_matrix;
 
 out vec4 v_color;
@@ -20,107 +19,104 @@ void main() {
   gl_Position = u_matrix * a_position;
   v_color = u_color;
 }
-
 `;
 
-// Define the fragment shader code, using GLSL 3.00
 const fsGLSL = `#version 300 es
 precision highp float;
 
 in vec4 v_color;
-uniform bool v_useUniformColor;
+uniform bool u_useUniformColor;
 
 uniform vec4 u_color; // Uniform para color verde
 
 out vec4 outColor;
 
 void main() {
-  if (v_useUniformColor) {
+  if (u_useUniformColor) {
     outColor = u_color; // Usar color uniforme (verde)
   } else {
     outColor = v_color; // Usar color por atributo
   }
 }
-
 `;
 
-// Define the Object3D class to represent 3D objects
+// Define las clases de objetos 3D
 class Building3D {
-  constructor(id, position=[1,1,1], rotation=[0,0,0], scale=[1,10,1]){
+  constructor(id, position = [1, 1, 1], rotation = [0, 0, 0], scale = [1, 10, 1]) {
     this.id = id;
     this.position = position;
     this.rotation = rotation;
     this.scale = scale;
-    this.matrix = m4.identity();
+    this.matrix = twgl.m4.identity();
   }
 }
 
 class Street3D {
-  constructor(id, position=[0,0,0], rotation=[0,0,0], scale=[1,0,1]){
+  constructor(id, position = [0, 0, 0], rotation = [0, 0, 0], scale = [1, 0, 1]) {
     this.id = id;
     this.position = position;
     this.rotation = rotation;
     this.scale = scale;
-    this.matrix = m4.identity();
+    this.matrix = twgl.m4.identity();
   }
 }
 
 class TrafficLight3D {
-  constructor(id, position = [0, 0, 0], rotation = [0, 0, 0], scale = [1, 1, 1], color = [0, 1, 0]) {
+  constructor(id, position = [0, 0, 0], rotation = [0, 0, 0], scale = [1, 1, 1], color = [0, 1, 0, 1]) {
     this.id = id;
     this.position = position;
     this.rotation = rotation;
     this.scale = scale;
-    this.color = color; // Guardar el color (verde por defecto)
-    this.matrix = m4.identity();
+    this.color = color; // Guardar el color en RGBA
+    this.matrix = twgl.m4.identity();
   }
 }
 
-
 class Car3D {
-  constructor(id, position=[0,0,0], rotation=[0,0,0], scale=[1,1,1]){
+  constructor(id, position = [0, 0, 0], rotation = [0, 0, 0], scale = [0.02, 0.02, 0.02]) {
     this.id = id;
     this.position = position;
     this.rotation = rotation;
     this.scale = scale;
-    this.matrix = m4.identity();
+    this.matrix = twgl.m4.identity();
   }
 }
 
 class Destination3D {
-  constructor(id, position=[0,0,0], rotation=[0,0,0], scale=[1,5,1]){
+  constructor(id, position = [0, 0, 0], rotation = [0, 0, 0], scale = [1, 5, 1]) {
     this.id = id;
     this.position = position;
     this.rotation = rotation;
     this.scale = scale;
-    this.matrix = m4.identity();
+    this.matrix = twgl.m4.identity();
   }
 }
-// Define the car server URI
+
+// Define la URI del servidor
 const agent_server_uri = "http://localhost:8585/";
 
-// Initialize arrays to store agents and obstacles
+// Inicializa los arrays para almacenar agentes y obstáculos
 const cars = [];
 const buildings = [];
 const streets = [];
 const trafficLights = [];
 const destinations = [];
 
-// Initialize WebGL-related variables
-let gl, programInfo, streetArrays, buildingArrays, carArrays, destinationArrays, trafficLightArrays, streetBufferInfo, buildingBufferInfo, 
-carBufferInfo, destinationBufferInfo, trafficLightBufferInfo, streetVao, buildingVao, carVao, destinationVao, trafficLightVao;
+// Inicializa las variables relacionadas con WebGL
+let gl, programInfo, streetArrays, buildingArrays, carArrays, destinationArrays, trafficLightArrays;
+let streetBufferInfo, buildingBufferInfo, carBufferInfo, destinationBufferInfo, trafficLightBufferInfo;
+let streetVao, buildingVao, carVao, destinationVao, trafficLightVao;
 
-// Define the camera position
-let cameraPosition = {x:15, y:10, z:15};
+// Define la posición de la cámara
+let cameraPosition = { x: 15, y: 10, z: 15 };
 
-// Initialize the frame count
+// Inicializa el conteo de frames
 let frameCount = 0;
 
-// Define the data object
+// Define el objeto de datos para la inicialización
 const data = {
-  NAgents: 500,
-  width: 100,
-  height: 100
+  map_file: '../city_files/map.txt', // Asegúrate de que esta ruta es correcta
+  steps_dist_max: 100
 };
 
 // Cache para modelos cargados
@@ -204,10 +200,14 @@ function loadObj(objData) {
   };
 }
 
-
 async function main() {
   const canvas = document.querySelector('canvas');
   gl = canvas.getContext('webgl2');
+
+  if (!gl) {
+    console.error("WebGL2 no está soportado en este navegador.");
+    return;
+  }
 
   // Crear la información del programa usando los shaders
   programInfo = twgl.createProgramInfo(gl, [vsGLSL, fsGLSL]);
@@ -217,11 +217,8 @@ async function main() {
     loadModelObj('../building.obj'), // Reemplaza con la ruta correcta
     loadModelObj('../car.obj'),
     loadModelObj('../flag.obj'),
-    loadModelObj('../light.obj')          // Reemplaza con la ruta correcta
+    loadModelObj('../light.obj')      // Reemplaza con la ruta correcta
   ]);
-
-  console.log(trafficLightModel)
-
 
   // Asignar los modelos cargados a las variables de buffer y VAO
   buildingBufferInfo = buildingModel.bufferInfo;
@@ -231,19 +228,7 @@ async function main() {
   destinationBufferInfo = flagModel.bufferInfo;
   destinationVao = flagModel.vao;
   trafficLightBufferInfo = trafficLightModel.bufferInfo;
-  trafficLightVao = trafficLightModel.vao
-
-  // Generar datos para calles y destinos
-  streetArrays = generateData(1);
-  // destinationArrays = generateDataD(1);
-
-  // Crear buffer info para calles y destinos
-  streetBufferInfo = twgl.createBufferInfoFromArrays(gl, streetArrays);
-  // destinationBufferInfo = twgl.createBufferInfoFromArrays(gl, destinationArrays);
-
-  // Crear VAOs para calles y destinos
-  streetVao = twgl.createVAOFromBufferInfo(gl, programInfo, streetBufferInfo);
-  // destinationVao = twgl.createVAOFromBufferInfo(gl, programInfo, destinationBufferInfo);
+  trafficLightVao = trafficLightModel.vao;
 
   // Configurar la interfaz de usuario
   setupUI();
@@ -262,198 +247,219 @@ async function main() {
   await getTrafficLights();
 
   // Dibujar la escena
-  await drawScene(gl, programInfo, streetVao, streetBufferInfo, buildingVao, buildingBufferInfo, carVao, carBufferInfo, destinationVao, destinationBufferInfo, trafficLightBufferInfo, trafficLightVao);
+  drawScene();
 }
 
 /*
- * Initializes the agents model by sending a POST request to the car server.
+ * Inicializa el modelo de agentes enviando una solicitud POST al servidor.
  */
 async function initAgentsModel() {
   try {
-    // Send a POST request to the car server to initialize the model
+    // Enviar una solicitud POST al servidor para inicializar el modelo
     let response = await fetch(agent_server_uri + "init", {
-      method: 'POST', 
-      headers: { 'Content-Type':'application/json' },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
-    })
+    });
 
-    // Check if the response was successful
-    if(response.ok){
-      // Parse the response as JSON and log the message
-      let result = await response.json()
-      console.log(result.message)
+    // Verificar si la respuesta fue exitosa
+    if (response.ok) {
+      // Parsear la respuesta como JSON y loguear el mensaje
+      let result = await response.json();
+      console.log(result.message);
+    } else {
+      console.error(`Failed to initialize model. Status: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error("Response text:", errorText);
     }
-      
+
   } catch (error) {
-    // Log any errors that occur during the request
-    console.log(error)    
+    // Loguear cualquier error que ocurra durante la solicitud
+    console.error("Error during model initialization:", error);
   }
 }
 
 /*
- * Retrieves the current positions of all agents from the car server.
+ * Obtiene las posiciones actuales de todos los coches desde el servidor.
  */
 async function getCars() {
   try {
-    // Send a GET request to the car server to retrieve the car positions
+    // Enviar una solicitud GET al servidor para obtener las posiciones de los coches
     let response = await fetch(agent_server_uri + "getCars");
 
-    // Check if the response was successful
+    // Verificar si la respuesta fue exitosa
     if (response.ok) {
       let result;
       try {
-        // Parse the response as JSON
+        // Parsear la respuesta como JSON
         result = await response.json();
       } catch (jsonError) {
         console.error("Failed to parse JSON response from /getCars:", jsonError);
         const responseText = await response.text();
         console.error("Response text:", responseText);
-        return; // Exit the function since we cannot proceed without valid JSON
+        return; // Salir de la función ya que no podemos proceder sin JSON válido
       }
 
-      // Log the car positions
-      console.log("Car positions received:", result.positions);
+      // Loguear las posiciones de los coches
+      console.log("Car positions received:", result.cars);
 
-      // Check if the positions are valid
-      if (!Array.isArray(result.positions)) {
-        console.error("Invalid positions data received from /getCars:", result.positions);
-        return;
-      }
-
-      // Check if the cars array is empty
+      // Verificar si el array de coches está vacío
       if (cars.length === 0) {
-        // Create new cars and add them to the cars array
-        for (const car of result.positions) {
+        // Crear nuevos coches y agregarlos al array de coches
+        for (const car of result.cars) {
           const newCar = new Car3D(
             car.id,
-            [car.x, car.y, car.z],
-            [0, 0, 0],          // Rotación (sin cambios)
-            [0.02, 0.02, 0.02]           // Escala de 1
+            [car.x, -3, car.z],        // Posición ajustada
+            [0, 0, 0],                 // Rotación (sin cambios)
+            [0.02, 0.02, 0.02]         // Escala
           );
           cars.push(newCar);
         }
-        // Log the cars array
+        // Loguear el array de coches después de la inicialización
         console.log("Cars array after initialization:", cars);
       } else {
-        // Update the positions of existing cars
-        for (const car of result.positions) {
+        // Actualizar las posiciones de los coches existentes
+        for (const car of result.cars) {
           const current_car = cars.find((object3d) => object3d.id === car.id);
 
-          // Check if the car exists in the cars array
+          // Verificar si el coche existe en el array de coches
           if (current_car !== undefined) {
-            // Update the car's position
-            current_car.position = [car.x, car.y, car.z];
+            // Actualizar la posición del coche
+            current_car.position = [car.x, -3, car.z];
           } else {
-            // Car not found in the array, perhaps add it
-            console.warn(`Car with id ${car.id} not found in cars array.`);
-            const newCar = new Car3D(car.id, [car.x, car.y, car.z]);
+            // Coche no encontrado en el array, posiblemente agregarlo
+            console.warn(`Car with id ${car.id} not found in cars array. Adding new car.`);
+            const newCar = new Car3D(car.id, [car.x, -3, car.z]);
             cars.push(newCar);
           }
         }
       }
     } else {
-      // Response was not OK, log the status and response
+      // La respuesta no fue exitosa, loguear el estado y la respuesta
       console.error(`Failed to fetch /getCars. Status: ${response.status} ${response.statusText}`);
       const errorText = await response.text();
       console.error("Response text:", errorText);
     }
   } catch (error) {
-    // Log any errors that occur during the request
+    // Loguear cualquier error que ocurra durante la solicitud
     console.error("Error fetching /getCars:", error);
   }
 }
 
-
 /*
- * Retrieves the current positions of all obstacles from the car server.
+ * Obtiene las posiciones actuales de todos los edificios desde el servidor.
  */
 async function getBuildings() {
   try {
-    // Send a GET request to the car server to retrieve the building positions
-    let response = await fetch(agent_server_uri + "getBuildings") 
+    // Enviar una solicitud GET al servidor para obtener las posiciones de los edificios
+    let response = await fetch(agent_server_uri + "getBuildings");
 
-    // Check if the response was successful
-    if(response.ok){
-      // Parse the response as JSON
-      let result = await response.json()
-
-      // Create new obstacles and add them to the obstacles array
-      for (const building of result.positions) {
-        const newBuilding = new Building3D(
-          building.id,
-          [building.x, building.y-5, building.z],
-          [0, 0, 0],          // Rotación (sin cambios)
-          [1, 5, 1]     // Escala más pequeña
-        );
-        buildings.push(newBuilding);
-        }        
-      // Log the obstacles array
-      console.log("Buildings:", buildings)
-    }
-
-  } catch (error) {
-    // Log any errors that occur during the request
-    console.log(error) 
-  }
-}
-
-async function getStreets() {
-  try {
-    // Send a GET request to the car server to retrieve the building positions
-    let response = await fetch(agent_server_uri + "getStreets") 
-
-    // Check if the response was successful
-    if(response.ok){
-      // Parse the response as JSON
-      let result = await response.json()
-
-      // Create new obstacles and add them to the obstacles array
-      for (const street of result.positions) {
-        const newStreet = new Street3D(street.id, [street.x, street.y, street.z])
-        streets.push(newStreet)
-      }
-      // Log the obstacles array
-      console.log("Streets:", streets)
-    }
-
-  } catch (error) {
-    // Log any errors that occur during the request
-    console.log(error) 
-  }
-}
-
-async function getDestinations() {
-  try {
-    // Send a GET request to the car server to retrieve the destination positions
-    let response = await fetch(agent_server_uri + "getDestinations");
-
-    // Check if the response was successful
+    // Verificar si la respuesta fue exitosa
     if (response.ok) {
-      // Parse the response as JSON
+      // Parsear la respuesta como JSON
       let result = await response.json();
 
-      
+      // Crear nuevos edificios y agregarlos al array de edificios
+      for (const building of result.buildings) {
+        const newBuilding = new Building3D(
+          building.id,
+          [building.x, -1.5, building.z], // Posición ajustada
+          [0, 0, 0],                       // Rotación (sin cambios)
+          [1, 5, 1]                        // Escala
+        );
+        buildings.push(newBuilding);
+      }
+      // Loguear el array de edificios
+      console.log("Buildings:", buildings);
+    } else {
+      console.error(`Failed to fetch /getBuildings. Status: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error("Response text:", errorText);
+    }
 
-      for (const destination of result.positions) {
+  } catch (error) {
+    // Loguear cualquier error que ocurra durante la solicitud
+    console.error("Error fetching /getBuildings:", error);
+  }
+}
+
+/*
+ * Obtiene las posiciones actuales de todas las calles desde el servidor.
+ */
+async function getStreets() {
+  try {
+    // Enviar una solicitud GET al servidor para obtener las posiciones de las calles
+    let response = await fetch(agent_server_uri + "getStreets");
+
+    // Verificar si la respuesta fue exitosa
+    if (response.ok) {
+      // Parsear la respuesta como JSON
+      let result = await response.json();
+
+      // Crear nuevas calles y agregarlas al array de calles
+      for (const street of result.streets) {
+        const newStreet = new Street3D(
+          street.id,
+          [street.x, 0, street.z], // Posición ajustada
+          [0, 0, 0],               // Rotación (sin cambios)
+          [1, 1, 1]                // Escala
+        );
+        streets.push(newStreet);
+      }
+      // Loguear el array de calles
+      console.log("Streets:", streets);
+    } else {
+      console.error(`Failed to fetch /getStreets. Status: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error("Response text:", errorText);
+    }
+
+  } catch (error) {
+    // Loguear cualquier error que ocurra durante la solicitud
+    console.error("Error fetching /getStreets:", error);
+  }
+}
+
+/*
+ * Obtiene las posiciones actuales de todos los destinos desde el servidor.
+ */
+async function getDestinations() {
+  try {
+    // Enviar una solicitud GET al servidor para obtener las posiciones de los destinos
+    let response = await fetch(agent_server_uri + "getDestinations");
+
+    // Verificar si la respuesta fue exitosa
+    if (response.ok) {
+      // Parsear la respuesta como JSON
+      let result = await response.json();
+
+      for (const destination of result.destinations) {
         const newDestination = new Destination3D(
           destination.id,
-          [destination.x, destination.y-5, destination.z],
-          [0, 0, 0],          // Rotación (sin cambios)
-          [1, 1, 1]           // Escala adecuada para flag.obj
+          [destination.x, -1, destination.z], // Posición ajustada
+          [0, 0, 0],                           // Rotación (sin cambios)
+          [1, 1, 1]                            // Escala adecuada para flag.obj
         );
         destinations.push(newDestination);
       }
 
-      // Log the destinations array
+      // Loguear el array de destinos
       console.log("Destinations:", destinations);
+    } else {
+      console.error(`Failed to fetch /getDestinations. Status: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error("Response text:", errorText);
     }
 
   } catch (error) {
-    // Log any errors that occur during the request
-    console.log(error);
+    // Loguear cualquier error que ocurra durante la solicitud
+    console.error("Error fetching /getDestinations:", error);
   }
 }
 
+/*
+ * Obtiene los estados y posiciones actuales de todos los semáforos desde el servidor.
+ */
 async function getTrafficLights() {
   try {
     // Enviar una solicitud GET al servidor para obtener las posiciones de los semáforos
@@ -465,211 +471,253 @@ async function getTrafficLights() {
       let result = await response.json();
 
       if (trafficLights.length === 0) {
-      // Crear nuevos semáforos y agregarlos al array trafficLights
-      for (const light of result.positions) {
-        const newTrafficLight = new TrafficLight3D(
-          [light.x, light.y-5, light.z],
-          [0, 0, 0],          // Rotación (sin cambios)
-          [1, 5, 1]     // Escala más pequeña
-        );
-        trafficLights.push(newTrafficLight);
+        // Crear nuevos semáforos y agregarlos al array trafficLights
+        for (const light of result.traffic_lights) {
+          // Mapear el color de "green" o "red" a un array RGBA
+          const color = light.color === "green" ? [0, 1, 0, 1] : [1, 0, 0, 1];
 
-      // Loguear los semáforos cargados
-      console.log("Traffic Lights:", trafficLights);
-        }      
+          const newTrafficLight = new TrafficLight3D(
+            light.id,
+            [light.x, 0.5, light.z], // Posición ajustada
+            [0, 0, 0],               // Rotación (sin cambios)
+            [1, 1, 1],               // Escala
+            color                    // Color basado en el estado
+          );
+          trafficLights.push(newTrafficLight);
+        }
+
+        // Loguear los semáforos cargados
+        console.log("Traffic Lights:", trafficLights);
+      } else {
+        // Actualizar los estados y posiciones de los semáforos existentes
+        for (const light of result.traffic_lights) {
+          const current_light = trafficLights.find((tl) => tl.id === light.id);
+
+          // Verificar si el semáforo existe en el array
+          if (current_light !== undefined) {
+            // Actualizar la posición
+            current_light.position = [light.x, 0.5, light.z];
+
+            // Actualizar el color según el estado
+            current_light.color = light.color === "green" ? [0, 1, 0, 1] : [1, 0, 0, 1];
+          } else {
+            // Semáforo no encontrado en el array, agregarlo
+            console.warn(`Traffic Light with id ${light.id} not found in trafficLights array. Adding new traffic light.`);
+            const color = light.color === "green" ? [0, 1, 0, 1] : [1, 0, 0, 1];
+            const newTrafficLight = new TrafficLight3D(
+              light.id,
+              [light.x, 0.5, light.z],
+              [0, 0, 0],
+              [1, 1, 1],
+              color
+            );
+            trafficLights.push(newTrafficLight);
+          }
+        }
       }
-    }
-    
-    } catch (error) {
-      // Log any errors that occur during the request
-      console.error("Error fetching traffic lights:", error);
-    }
-}
-
-/*
- * Updates the car positions by sending a request to the car server.
- */
-async function update() {
-  try {
-    // Send a request to the car server to update the car positions
-    let response = await fetch(agent_server_uri + "update") 
-
-    // Check if the response was successful
-    if(response.ok){
-      // Retrieve the updated car positions
-      await getCars()
-      // Log a message indicating that the agents have been updated
-      console.log("Updated agents")
+    } else {
+      // La respuesta no fue exitosa, loguear el estado y la respuesta
+      console.error(`Failed to fetch /getTrafficLights. Status: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error("Response text:", errorText);
     }
 
   } catch (error) {
-    // Log any errors that occur during the request
-    console.log(error) 
+    // Loguear cualquier error que ocurra durante la solicitud
+    console.error("Error fetching /getTrafficLights:", error);
   }
 }
 
 /*
- * Draws the scene by rendering the agents and obstacles.
- * 
- * @param {WebGLRenderingContext} gl - The WebGL rendering context.
- * @param {Object} programInfo - The program information.
- * @param {WebGLVertexArrayObject} streetVao - The vertex array object for agents.
- * @param {Object} streetBufferInfo - The buffer information for agents.
- * @param {WebGLVertexArrayObject} buildingVao - The vertex array object for obstacles.
- * @param {Object} buildingBufferInfo - The buffer information for obstacles.
+ * Actualiza las posiciones de los coches enviando una solicitud al servidor.
  */
-async function drawScene(gl, programInfo, streetVao, streetBufferInfo, buildingVao, buildingBufferInfo, carVao, carBufferInfo, destinationVao, destinationBufferInfo, trafficLightBufferInfo, trafficLightVao) {
-    // Resize the canvas to match the display size
-    twgl.resizeCanvasToDisplaySize(gl.canvas);
+async function update() {
+  try {
+    // Enviar una solicitud al servidor para actualizar las posiciones de los coches
+    let response = await fetch(agent_server_uri + "update");
 
-    // Set the viewport to match the canvas size
-    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    // Verificar si la respuesta fue exitosa
+    if (response.ok) {
+      // Obtener las posiciones actualizadas de los coches
+      await getCars();
+      // Loguear un mensaje indicando que los agentes han sido actualizados
+      console.log("Updated agents");
+    } else {
+      console.error(`Failed to update model. Status: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error("Response text:", errorText);
+    }
 
-    // Set the clear color and enable depth testing
-    gl.clearColor(0.2, 0.2, 0.2, 1);
-    gl.enable(gl.DEPTH_TEST);
-
-    // Clear the color and depth buffers
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-    // Use the program
-    gl.useProgram(programInfo.program);
-
-    // Set up the view-projection matrix
-    const viewProjectionMatrix = setupWorldView(gl);
-
-    // Set the distance for rendering
-    const distance = 1
-
-    // Draw the agents
-    drawStreets(distance, streetVao, streetBufferInfo, viewProjectionMatrix)    
-    // Draw the obstacles
-    drawBuildings(distance, buildingVao, buildingBufferInfo, viewProjectionMatrix)
-
-    drawCars(distance, carVao, carBufferInfo, viewProjectionMatrix)
-
-    drawDestinations(distance, destinationVao, destinationBufferInfo, viewProjectionMatrix)
-
-    drawTrafficLights(distance, trafficLightVao, trafficLightBufferInfo , viewProjectionMatrix)
-    // Increment the frame count
-    frameCount++
-
-    // Update the scene every 30 frames
-    if(frameCount%30 == 0){
-      frameCount = 0
-      await update()
-    } 
-
-    // Request the next frame
-    requestAnimationFrame(()=>drawScene(gl, programInfo, streetVao, streetBufferInfo, buildingVao, buildingBufferInfo, carVao, carBufferInfo, destinationVao, destinationBufferInfo, trafficLightBufferInfo, trafficLightVao))
+  } catch (error) {
+    // Loguear cualquier error que ocurra durante la solicitud
+    console.error("Error updating the model:", error);
+  }
 }
 
 /*
- * Draws the agents.
- * 
- * @param {Number} distance - The distance for rendering.
- * @param {WebGLVertexArrayObject} streetVao - The vertex array object for agents.
- * @param {Object} streetBufferInfo - The buffer information for agents.
- * @param {Float32Array} viewProjectionMatrix - The view-projection matrix.
+ * Dibuja la escena renderizando los agentes y obstáculos.
  */
-function drawCars(distance, carVao, carBufferInfo, viewProjectionMatrix){
-    // Bind the vertex array object for agents
-    gl.bindVertexArray(carVao);
+async function drawScene() {
+  // Redimensionar el canvas para coincidir con el tamaño de visualización
+  twgl.resizeCanvasToDisplaySize(gl.canvas);
 
-    // Iterate over the agents
-    for(const car of cars){
+  // Establecer el viewport para coincidir con el tamaño del canvas
+  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-      // Create the car's transformation matrix
-      const cube_trans = twgl.v3.create(...car.position);
-      const cube_scale = twgl.v3.create(...car.scale);
+  // Establecer el color de limpieza y habilitar la prueba de profundidad
+  gl.clearColor(0.2, 0.2, 0.2, 1);
+  gl.enable(gl.DEPTH_TEST);
 
-      // Calculate the car's matrix
-      car.matrix = twgl.m4.translate(viewProjectionMatrix, cube_trans);
-      car.matrix = twgl.m4.rotateX(car.matrix, car.rotation[0]);
-      car.matrix = twgl.m4.rotateY(car.matrix, car.rotation[1]);
-      car.matrix = twgl.m4.rotateZ(car.matrix, car.rotation[2]);
-      car.matrix = twgl.m4.scale(car.matrix, cube_scale);
+  // Limpiar los buffers de color y profundidad
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-      // Set the uniforms for the car
-      let uniforms = {
-      u_matrix: car.matrix,
-      u_color: [1.0, 1.0, 0.0, 1.0],
-      u_useUniformColor: true // Activar el uso de color uniforme
-      
-      }
+  // Usar el programa
+  gl.useProgram(programInfo.program);
 
-      // Set the uniforms and draw the car
-      twgl.setUniforms(programInfo, uniforms);
-      twgl.drawBufferInfo(gl, carBufferInfo);
-      
-    }
+  // Configurar la matriz de vista-proyección
+  const viewProjectionMatrix = setupWorldView(gl);
+
+  // Dibujar las calles
+  drawStreets(streetVao, streetBufferInfo, viewProjectionMatrix);
+  // Dibujar los edificios
+  drawBuildings(buildingVao, buildingBufferInfo, viewProjectionMatrix);
+  // Dibujar los coches
+  drawCars(carVao, carBufferInfo, viewProjectionMatrix);
+  // Dibujar los destinos
+  drawDestinations(destinationVao, destinationBufferInfo, viewProjectionMatrix);
+  // Dibujar los semáforos
+  drawTrafficLights(trafficLightVao, trafficLightBufferInfo, viewProjectionMatrix);
+
+  // Incrementar el conteo de frames
+  frameCount++;
+
+  // Actualizar la escena cada 30 frames
+  if (frameCount % 30 === 0) {
+    frameCount = 0;
+    await update();
+  }
+
+  // Solicitar el siguiente frame
+  requestAnimationFrame(drawScene);
 }
 
-function drawStreets(distance, streetVao, streetBufferInfo, viewProjectionMatrix){
-  // Bind the vertex array object for agents
+/*
+ * Dibuja los coches.
+ */
+function drawCars(carVao, carBufferInfo, viewProjectionMatrix) {
+  // Vincular el VAO para coches
+  gl.bindVertexArray(carVao);
+
+  // Iterar sobre los coches
+  for (const car of cars) {
+    // Crear la matriz de transformación del coche
+    car.matrix = twgl.m4.identity();
+    twgl.m4.translate(car.matrix, car.position, car.matrix);
+    twgl.m4.rotateX(car.matrix, car.rotation[0], car.matrix);
+    twgl.m4.rotateY(car.matrix, car.rotation[1], car.matrix);
+    twgl.m4.rotateZ(car.matrix, car.rotation[2], car.matrix);
+    twgl.m4.scale(car.matrix, car.scale, car.matrix);
+    twgl.m4.multiply(viewProjectionMatrix, car.matrix, car.matrix);
+
+    // Establecer los uniformes para el coche
+    let uniforms = {
+      u_matrix: car.matrix,
+      u_color: [1.0, 1.0, 0.0, 1.0], // Amarillo para los coches
+      u_useUniformColor: true
+    };
+
+    // Establecer los uniformes y dibujar el coche
+    twgl.setUniforms(programInfo, uniforms);
+    twgl.drawBufferInfo(gl, carBufferInfo);
+  }
+}
+
+/*
+ * Dibuja las calles.
+ */
+function drawStreets(streetVao, streetBufferInfo, viewProjectionMatrix) {
+  // Vincular el VAO para calles
   gl.bindVertexArray(streetVao);
 
-  // Iterate over the agents
-  for(const street of streets){
+  // Iterar sobre las calles
+  for (const street of streets) {
+    // Crear la matriz de transformación de la calle
+    street.matrix = twgl.m4.identity();
+    twgl.m4.translate(street.matrix, street.position, street.matrix);
+    twgl.m4.rotateX(street.matrix, street.rotation[0], street.matrix);
+    twgl.m4.rotateY(street.matrix, street.rotation[1], street.matrix);
+    twgl.m4.rotateZ(street.matrix, street.rotation[2], street.matrix);
+    twgl.m4.scale(street.matrix, street.scale, street.matrix);
+    twgl.m4.multiply(viewProjectionMatrix, street.matrix, street.matrix);
 
-    // Create the car's transformation matrix
-    const cube_trans = twgl.v3.create(...street.position);
-    const cube_scale = twgl.v3.create(...street.scale);
-
-    // Calculate the car's matrix
-    street.matrix = twgl.m4.translate(viewProjectionMatrix, cube_trans);
-    street.matrix = twgl.m4.rotateX(street.matrix, street.rotation[0]);
-    street.matrix = twgl.m4.rotateY(street.matrix, street.rotation[1]);
-    street.matrix = twgl.m4.rotateZ(street.matrix, street.rotation[2]);
-    street.matrix = twgl.m4.scale(street.matrix, cube_scale);
-
-    // Set the uniforms for the car
+    // Establecer los uniformes para la calle
     let uniforms = {
       u_matrix: street.matrix,
-      u_color: [0.0, 0.0, 0.0, 1.0], 
-      u_useUniformColor: true // Activar el uso de color uniforme
-      
-      }
+      u_color: [0.0, 0.0, 0.0, 1.0], // Negro para las calles
+      u_useUniformColor: true
+    };
 
-    // Set the uniforms and draw the car
+    // Establecer los uniformes y dibujar la calle
     twgl.setUniforms(programInfo, uniforms);
     twgl.drawBufferInfo(gl, streetBufferInfo);
-    
   }
-}  
+}
 
 /*
- * Draws the destinations using flag.obj with a uniform color (green).
- * 
- * @param {Number} distance - The distance for rendering.
- * @param {WebGLVertexArrayObject} destinationVao - The VAO for destinations.
- * @param {Object} destinationBufferInfo - The buffer info for destinations.
- * @param {Float32Array} viewProjectionMatrix - The view-projection matrix.
+ * Dibuja los edificios.
  */
-function drawDestinations(distance, destinationVao, destinationBufferInfo, viewProjectionMatrix) {
+function drawBuildings(buildingVao, buildingBufferInfo, viewProjectionMatrix) {
+  // Vincular el VAO para edificios
+  gl.bindVertexArray(buildingVao);
+
+  // Iterar sobre los edificios
+  for (const building of buildings) {
+    // Crear la matriz de transformación del edificio
+    building.matrix = twgl.m4.identity();
+    twgl.m4.translate(building.matrix, building.position, building.matrix);
+    twgl.m4.rotateX(building.matrix, building.rotation[0], building.matrix);
+    twgl.m4.rotateY(building.matrix, building.rotation[1], building.matrix);
+    twgl.m4.rotateZ(building.matrix, building.rotation[2], building.matrix);
+    twgl.m4.scale(building.matrix, building.scale, building.matrix);
+    twgl.m4.multiply(viewProjectionMatrix, building.matrix, building.matrix);
+
+    // Establecer los uniformes para el edificio
+    let uniforms = {
+      u_matrix: building.matrix,
+      u_color: [0.9, 0.9, 0.9, 1.0], // Gris claro para edificios
+      u_useUniformColor: true
+    };
+
+    // Establecer los uniformes y dibujar el edificio
+    twgl.setUniforms(programInfo, uniforms);
+    twgl.drawBufferInfo(gl, buildingBufferInfo);
+  }
+}
+
+/*
+ * Dibuja los destinos.
+ */
+function drawDestinations(destinationVao, destinationBufferInfo, viewProjectionMatrix) {
   // Vincular el VAO para destinos
   gl.bindVertexArray(destinationVao);
 
   // Iterar sobre los destinos
   for (const destination of destinations) {
-
-    // Crear el vector de traslación para la posición del destino
-    const dest_trans = twgl.v3.create(...destination.position);
-    const dest_scale = twgl.v3.create(...destination.scale);
-
-    // Calcular la matriz de transformación del destino
-    destination.matrix = twgl.m4.translate(viewProjectionMatrix, dest_trans);
-    destination.matrix = twgl.m4.rotateX(destination.matrix, destination.rotation[0]);
-    destination.matrix = twgl.m4.rotateY(destination.matrix, destination.rotation[1]);
-    destination.matrix = twgl.m4.rotateZ(destination.matrix, destination.rotation[2]);
-    destination.matrix = twgl.m4.scale(destination.matrix, dest_scale);
+    // Crear la matriz de transformación del destino
+    destination.matrix = twgl.m4.identity();
+    twgl.m4.translate(destination.matrix, destination.position, destination.matrix);
+    twgl.m4.rotateX(destination.matrix, destination.rotation[0], destination.matrix);
+    twgl.m4.rotateY(destination.matrix, destination.rotation[1], destination.matrix);
+    twgl.m4.rotateZ(destination.matrix, destination.rotation[2], destination.matrix);
+    twgl.m4.scale(destination.matrix, destination.scale, destination.matrix);
+    twgl.m4.multiply(viewProjectionMatrix, destination.matrix, destination.matrix);
 
     // Establecer los uniformes para el destino
     let uniforms = {
       u_matrix: destination.matrix,
-      u_color: [0, 1, 0, 1], // Verde en RGBA
-      u_useUniformColor: true // Activar el uso de color uniforme
-    }
+      u_color: [0, 1, 0, 1], // Verde para destinos
+      u_useUniformColor: true
+    };
 
     // Establecer los uniformes y dibujar el destino
     twgl.setUniforms(programInfo, uniforms);
@@ -678,436 +726,213 @@ function drawDestinations(distance, destinationVao, destinationBufferInfo, viewP
 }
 
 /*
- * Draws the obstacles.
- * 
- * @param {Number} distance - The distance for rendering.
- * @param {WebGLVertexArrayObject} buildingVao - The vertex array object for obstacles.
- * @param {Object} buildingBufferInfo - The buffer information for obstacles.
- * @param {Float32Array} viewProjectionMatrix - The view-projection matrix.
+ * Dibuja los semáforos.
  */
-function drawBuildings(distance, buildingVao, buildingBufferInfo, viewProjectionMatrix){
-    // Bind the vertex array object for obstacles
-    gl.bindVertexArray(buildingVao);
-
-    // Iterate over the obstacles
-    for(const building of buildings){
-      // Create the building's transformation matrix
-      const cube_trans = twgl.v3.create(...building.position);
-      const cube_scale = twgl.v3.create(...building.scale);
-
-      // Calculate the building's matrix
-      building.matrix = twgl.m4.translate(viewProjectionMatrix, cube_trans);
-      building.matrix = twgl.m4.rotateX(building.matrix, building.rotation[0]);
-      building.matrix = twgl.m4.rotateY(building.matrix, building.rotation[1]);
-      building.matrix = twgl.m4.rotateZ(building.matrix, building.rotation[2]);
-      building.matrix = twgl.m4.scale(building.matrix, cube_scale);
-
-      // Set the uniforms for the building
-      let uniforms = {
-        u_matrix: building.matrix,
-        u_color: [0.9, 0.9, 0.9, 1.0], // Gris claro,
-        u_useUniformColor: true // Activar el uso de color uniforme
-        
-        }
-
-      // Set the uniforms and draw the building
-      twgl.setUniforms(programInfo, uniforms);
-      twgl.drawBufferInfo(gl, buildingBufferInfo);
-      
-    }
-}
-
-function drawTrafficLights(distance, trafficLightVao, trafficLightBufferInfo, viewProjectionMatrix) {
+function drawTrafficLights(trafficLightVao, trafficLightBufferInfo, viewProjectionMatrix) {
   if (!trafficLightVao) {
     console.error("Traffic Light VAO is not initialized.");
-    return;  // Early return if the VAO is not available.
+    return;  // Salir temprano si el VAO no está disponible.
   }
 
+  // Vincular el VAO para semáforos
   gl.bindVertexArray(trafficLightVao);
 
+  // Iterar sobre los semáforos
   for (const trafficLight of trafficLights) {
-    const cube_trans = twgl.v3.create(...trafficLight.position);
-    const cube_scale = twgl.v3.create(...trafficLight.scale);
+    // Crear la matriz de transformación del semáforo
+    trafficLight.matrix = twgl.m4.identity();
+    twgl.m4.translate(trafficLight.matrix, trafficLight.position, trafficLight.matrix);
+    twgl.m4.rotateX(trafficLight.matrix, trafficLight.rotation[0], trafficLight.matrix);
+    twgl.m4.rotateY(trafficLight.matrix, trafficLight.rotation[1], trafficLight.matrix);
+    twgl.m4.rotateZ(trafficLight.matrix, trafficLight.rotation[2], trafficLight.matrix);
+    twgl.m4.scale(trafficLight.matrix, trafficLight.scale, trafficLight.matrix);
+    twgl.m4.multiply(viewProjectionMatrix, trafficLight.matrix, trafficLight.matrix);
 
-    trafficLight.matrix = twgl.m4.translate(viewProjectionMatrix, cube_trans);
-    trafficLight.matrix = twgl.m4.rotateX(trafficLight.matrix, trafficLight.rotation[0]);
-    trafficLight.matrix = twgl.m4.rotateY(trafficLight.matrix, trafficLight.rotation[1]);
-    trafficLight.matrix = twgl.m4.rotateZ(trafficLight.matrix, trafficLight.rotation[2]);
-    trafficLight.matrix = twgl.m4.scale(trafficLight.matrix, cube_scale);
+    // Establecer los uniformes para el semáforo
+    let uniforms = {
+      u_matrix: trafficLight.matrix,
+      u_color: trafficLight.color, // Color basado en el estado
+      u_useUniformColor: true
+    };
 
-    // const newColorData = [];
-    // for (let i = 0; i < trafficLightBufferInfo.numElements; i++) {
-    //   newColorData.push(...trafficLight.color); // Use the new traffic light color
-    // }
-
-    // twgl.setAttribInfoBufferFromArray(
-    //   gl,
-    //   trafficLightBufferInfo.attribs.a_color,
-    //   newColorData
-    // );
-
-    // const uniforms = {
-    //   u_matrix: trafficLight.matrix,
-    //   u_color: [1.0, 0.0, 0.0, 1.0], // Red
-    //   u_useUniformColor: true
-    // };
-
-    // twgl.setUniforms(programInfo, uniforms);
+    // Establecer los uniformes y dibujar el semáforo
+    twgl.setUniforms(programInfo, uniforms);
     twgl.drawBufferInfo(gl, trafficLightBufferInfo);
   }
 }
 
 /*
- * Sets up the world view by creating the view-projection matrix.
- * 
- * @param {WebGLRenderingContext} gl - The WebGL rendering context.
- * @returns {Float32Array} The view-projection matrix.
+ * Configura la vista del mundo creando la matriz de vista-proyección.
  */
 function setupWorldView(gl) {
-    // Set the field of view (FOV) in radians
-    const fov = 45 * Math.PI / 180;
+  // Establecer el campo de visión (FOV) en radianes
+  const fov = 45 * Math.PI / 180;
 
-    // Calculate the aspect ratio of the canvas
-    const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+  // Calcular la relación de aspecto del canvas
+  const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
 
-    // Create the projection matrix
-    const projectionMatrix = twgl.m4.perspective(fov, aspect, 1, 200);
+  // Crear la matriz de proyección
+  const projectionMatrix = twgl.m4.perspective(fov, aspect, 1, 200);
 
-    // Set the target position
-    const target = [0, 0, 0];
+  // Establecer la posición objetivo
+  const target = [0, 0, 0];
 
-    // Set the up vector
-    const up = [0, 1, 0];
+  // Establecer el vector 'up'
+  const up = [0, 1, 0];
 
-    // Calculate the camera position
-    const camPos = twgl.v3.create(cameraPosition.x + data.width/2, cameraPosition.y, cameraPosition.z+data.height/2)
+  // Calcular la posición de la cámara
+  const camPos = [cameraPosition.x, cameraPosition.y, cameraPosition.z];
 
-    // Create the camera matrix
-    const cameraMatrix = twgl.m4.lookAt(camPos, target, up);
+  // Crear la matriz de la cámara
+  const cameraMatrix = twgl.m4.lookAt(camPos, target, up);
 
-    // Calculate the view matrix
-    const viewMatrix = twgl.m4.inverse(cameraMatrix);
+  // Calcular la matriz de vista
+  const viewMatrix = twgl.m4.inverse(cameraMatrix);
 
-    // Calculate the view-projection matrix
-    const viewProjectionMatrix = twgl.m4.multiply(projectionMatrix, viewMatrix);
+  // Calcular la matriz de vista-proyección
+  const viewProjectionMatrix = twgl.m4.multiply(projectionMatrix, viewMatrix);
 
-    // Return the view-projection matrix
-    return viewProjectionMatrix;
+  // Devolver la matriz de vista-proyección
+  return viewProjectionMatrix;
 }
 
 /*
- * Sets up the user interface (UI) for the camera position.
+ * Configura la interfaz de usuario (UI) para la posición de la cámara.
  */
 function setupUI() {
-    // Create a new GUI instance
-    const gui = new GUI();
+  // Crear una nueva instancia de GUI
+  const gui = new GUI();
 
-    // Create a folder for the camera position
-    const posFolder = gui.addFolder('Position:')
+  // Crear una carpeta para la posición de la cámara
+  const posFolder = gui.addFolder('Position:');
 
-    // Add a slider for the x-axis
-    posFolder.add(cameraPosition, 'x', -50, 50)
-        .onChange( value => {
-            // Update the camera position when the slider value changes
-            cameraPosition.x = value
-        });
+  // Añadir un slider para el eje x
+  posFolder.add(cameraPosition, 'x', -50, 50)
+    .onChange(value => {
+      // Actualizar la posición de la cámara cuando cambia el valor del slider
+      cameraPosition.x = value;
+    });
 
-    // Add a slider for the y-axis
-    posFolder.add( cameraPosition, 'y', -50, 50)
-        .onChange( value => {
-            // Update the camera position when the slider value changes
-            cameraPosition.y = value
-        });
+  // Añadir un slider para el eje y
+  posFolder.add(cameraPosition, 'y', -50, 50)
+    .onChange(value => {
+      // Actualizar la posición de la cámara cuando cambia el valor del slider
+      cameraPosition.y = value;
+    });
 
-    // Add a slider for the z-axis
-    posFolder.add( cameraPosition, 'z', -50, 50)
-        .onChange( value => {
-            // Update the camera position when the slider value changes
-            cameraPosition.z = value
-        });
+  // Añadir un slider para el eje z
+  posFolder.add(cameraPosition, 'z', -50, 50)
+    .onChange(value => {
+      // Actualizar la posición de la cámara cuando cambia el valor del slider
+      cameraPosition.z = value;
+    });
 }
 
+/**
+ * Genera datos básicos para objetos simples.
+ * @param {Number} size - Factor de escala.
+ * @returns {Object} Arrays para buffer.
+ */
 function generateData(size) {
-    let arrays =
-    {
-        a_position: {
-                numComponents: 3,
-                data: [
-                  // Front Face
-                  -0.5, -0.5,  0.5,
-                  0.5, -0.5,  0.5,
-                  0.5,  0.5,  0.5,
-                 -0.5,  0.5,  0.5,
+  let arrays = {
+    a_position: {
+      numComponents: 3,
+      data: [
+        // Front Face
+        -0.5, -0.5,  0.5,
+         0.5, -0.5,  0.5,
+         0.5,  0.5,  0.5,
+        -0.5,  0.5,  0.5,
 
-                 // Back face
-                 -0.5, -0.5, -0.5,
-                 -0.5,  0.5, -0.5,
-                  0.5,  0.5, -0.5,
-                  0.5, -0.5, -0.5,
+        // Back face
+        -0.5, -0.5, -0.5,
+        -0.5,  0.5, -0.5,
+         0.5,  0.5, -0.5,
+         0.5, -0.5, -0.5,
 
-                 // Top face
-                 -0.5,  0.5, -0.5,
-                 -0.5,  0.5,  0.5,
-                  0.5,  0.5,  0.5,
-                  0.5,  0.5, -0.5,
+        // Top face
+        -0.5,  0.5, -0.5,
+        -0.5,  0.5,  0.5,
+         0.5,  0.5,  0.5,
+         0.5,  0.5, -0.5,
 
-                 // Bottom face
-                 -0.5, -0.5, -0.5,
-                  0.5, -0.5, -0.5,
-                  0.5, -0.5,  0.5,
-                 -0.5, -0.5,  0.5,
+        // Bottom face
+        -0.5, -0.5, -0.5,
+         0.5, -0.5, -0.5,
+         0.5, -0.5,  0.5,
+        -0.5, -0.5,  0.5,
 
-                 // Right face
-                  0.5, -0.5, -0.5,
-                  0.5,  0.5, -0.5,
-                  0.5,  0.5,  0.5,
-                  0.5, -0.5,  0.5,
+        // Right face
+         0.5, -0.5, -0.5,
+         0.5,  0.5, -0.5,
+         0.5,  0.5,  0.5,
+         0.5, -0.5,  0.5,
 
-                 // Left face
-                 -0.5, -0.5, -0.5,
-                 -0.5, -0.5,  0.5,
-                 -0.5,  0.5,  0.5,
-                 -0.5,  0.5, -0.5
-                ].map(e => size * e)
-            },
-        a_color: {
-                numComponents: 4,
-                data: [
-                  // Front face
-                    0, 0, 0, 1, // v_1
-                    0, 0, 0, 1, // v_1
-                    0, 0, 0, 1, // v_1
-                    0, 0, 0, 1, // v_1
-                  // Back Face
-                  0, 0, 0, 1, // v_1
-                  0, 0, 0, 1, // v_1
-                  0, 0, 0, 1, // v_1
-                  0, 0, 0, 1, // v_1
-                  // Top Face
-                  0, 0, 0, 1, // v_1
-                  0, 0, 0, 1, // v_1
-                  0, 0, 0, 1, // v_1
-                  0, 0, 0, 1, // v_1
-                  // Bottom Face
-                  0, 0, 0, 1, // v_1
-                  0, 0, 0, 1, // v_1
-                  0, 0, 0, 1, // v_1
-                  0, 0, 0, 1, // v_1
-                  // Right Face
-                  0, 0, 0, 1, // v_1
-                  0, 0, 0, 1, // v_1
-                  0, 0, 0, 1, // v_1
-                  0, 0, 0, 1, // v_1
-                  // Left Face
-                  0, 0, 0, 1, // v_1
-                  0, 0, 0, 1, // v_1
-                  0, 0, 0, 1, // v_1
-                  0, 0, 0, 1, // v_1
-                ]
-            },
-        indices: {
-                numComponents: 3,
-                data: [
-                  0, 1, 2,      0, 2, 3,    // Front face
-                  4, 5, 6,      4, 6, 7,    // Back face
-                  8, 9, 10,     8, 10, 11,  // Top face
-                  12, 13, 14,   12, 14, 15, // Bottom face
-                  16, 17, 18,   16, 18, 19, // Right face
-                  20, 21, 22,   20, 22, 23  // Left face
-                ]
-            }
-    };
+        // Left face
+        -0.5, -0.5, -0.5,
+        -0.5, -0.5,  0.5,
+        -0.5,  0.5,  0.5,
+        -0.5,  0.5, -0.5
+      ].map(e => size * e)
+    },
+    a_color: {
+      numComponents: 4,
+      data: [
+        // Front face
+        0, 0, 0, 1, // v_1
+        0, 0, 0, 1, // v_2
+        0, 0, 0, 1, // v_3
+        0, 0, 0, 1, // v_4
 
-    return arrays;
-}
+        // Back Face
+        0, 0, 0, 1,
+        0, 0, 0, 1,
+        0, 0, 0, 1,
+        0, 0, 0, 1,
 
-function generateDataD(size) {
-  let arrays =
-  {
-      a_position: {
-              numComponents: 3,
-              data: [
-                // Front Face
-                -0.5, -0.5,  0.5,
-                0.5, -0.5,  0.5,
-                0.5,  0.5,  0.5,
-               -0.5,  0.5,  0.5,
+        // Top Face
+        0, 0, 0, 1,
+        0, 0, 0, 1,
+        0, 0, 0, 1,
+        0, 0, 0, 1,
 
-               // Back face
-               -0.5, -0.5, -0.5,
-               -0.5,  0.5, -0.5,
-                0.5,  0.5, -0.5,
-                0.5, -0.5, -0.5,
+        // Bottom Face
+        0, 0, 0, 1,
+        0, 0, 0, 1,
+        0, 0, 0, 1,
+        0, 0, 0, 1,
 
-               // Top face
-               -0.5,  0.5, -0.5,
-               -0.5,  0.5,  0.5,
-                0.5,  0.5,  0.5,
-                0.5,  0.5, -0.5,
+        // Right Face
+        0, 0, 0, 1,
+        0, 0, 0, 1,
+        0, 0, 0, 1,
+        0, 0, 0, 1,
 
-               // Bottom face
-               -0.5, -0.5, -0.5,
-                0.5, -0.5, -0.5,
-                0.5, -0.5,  0.5,
-               -0.5, -0.5,  0.5,
-
-               // Right face
-                0.5, -0.5, -0.5,
-                0.5,  0.5, -0.5,
-                0.5,  0.5,  0.5,
-                0.5, -0.5,  0.5,
-
-               // Left face
-               -0.5, -0.5, -0.5,
-               -0.5, -0.5,  0.5,
-               -0.5,  0.5,  0.5,
-               -0.5,  0.5, -0.5
-              ].map(e => size * e)
-          },
-      a_color: {
-              numComponents: 4,
-              data: [
-                // Front face
-                  0, 1, 0, 1, // v_1
-                  0, 1, 0, 1, // v_1
-                  0, 1, 0, 1, // v_1
-                  0, 1, 0, 1, // v_1
-                // Back Face
-                0, 1, 0, 1, // v_1
-                0, 1, 0, 1, // v_1
-                0, 1, 0, 1, // v_1
-                0, 1, 0, 1, // v_1
-                // Top Face
-                0, 1, 0, 1, // v_1
-                0, 1, 0, 1, // v_1
-                0, 1, 0, 1, // v_1
-                0, 1, 0, 1, // v_1
-                // Bottom Face
-                0, 1, 0, 1, // v_1
-                0, 1, 0, 1, // v_1
-                0, 1, 0, 1, // v_1
-                0, 1, 0, 1, // v_1
-                // Right Face
-                0, 1, 0, 1, // v_1
-                0, 1, 0, 1, // v_1
-                0, 1, 0, 1, // v_1
-                0, 1, 0, 1, // v_1
-                // Left Face
-                0, 1, 0, 1, // v_1
-                0, 1, 0, 1, // v_1
-                0, 1, 0, 1, // v_1
-                0, 1, 0, 1, // v_1
-              ]
-          },
-      indices: {
-              numComponents: 3,
-              data: [
-                0, 1, 2,      0, 2, 3,    // Front face
-                4, 5, 6,      4, 6, 7,    // Back face
-                8, 9, 10,     8, 10, 11,  // Top face
-                12, 13, 14,   12, 14, 15, // Bottom face
-                16, 17, 18,   16, 18, 19, // Right face
-                20, 21, 22,   20, 22, 23  // Left face
-              ]
-          }
+        // Left Face
+        0, 0, 0, 1,
+        0, 0, 0, 1,
+        0, 0, 0, 1,
+        0, 0, 0, 1,
+      ]
+    },
+    indices: {
+      numComponents: 3,
+      data: [
+        0, 1, 2,      0, 2, 3,    // Front face
+        4, 5, 6,      4, 6, 7,    // Back face
+        8, 9, 10,     8, 10, 11,  // Top face
+        12, 13, 14,   12, 14, 15, // Bottom face
+        16, 17, 18,   16, 18, 19, // Right face
+        20, 21, 22,   20, 22, 23  // Left face
+      ]
+    }
   };
 
   return arrays;
 }
 
+/**
+ * Función principal que inicia la aplicación.
+ */
+main();
 
-function generateObstacleData(size){
-
-    let arrays =
-    {
-        a_position: {
-                numComponents: 3,
-                data: [
-                  // Front Face
-                  -0.5, -0.5,  0.5,
-                  0.5, -0.5,  0.5,
-                  0.5,  0.5,  0.5,
-                 -0.5,  0.5,  0.5,
-
-                 // Back face
-                 -0.5, -0.5, -0.5,
-                 -0.5,  0.5, -0.5,
-                  0.5,  0.5, -0.5,
-                  0.5, -0.5, -0.5,
-
-                 // Top face
-                 -0.5,  0.5, -0.5,
-                 -0.5,  0.5,  0.5,
-                  0.5,  0.5,  0.5,
-                  0.5,  0.5, -0.5,
-
-                 // Bottom face
-                 -0.5, -0.5, -0.5,
-                  0.5, -0.5, -0.5,
-                  0.5, -0.5,  0.5,
-                 -0.5, -0.5,  0.5,
-
-                 // Right face
-                  0.5, -0.5, -0.5,
-                  0.5,  0.5, -0.5,
-                  0.5,  0.5,  0.5,
-                  0.5, -0.5,  0.5,
-
-                 // Left face
-                 -0.5, -0.5, -0.5,
-                 -0.5, -0.5,  0.5,
-                 -0.5,  0.5,  0.5,
-                 -0.5,  0.5, -0.5
-                ].map(e => size * e)
-            },
-        a_color: {
-                numComponents: 4,
-                data: [
-                  // Front face
-                    0, 0, 0, 1, // v_1
-                    0, 0, 0, 1, // v_1
-                    0, 0, 0, 1, // v_1
-                    0, 0, 0, 1, // v_1
-                  // Back Face
-                    0.333, 0.333, 0.333, 1, // v_2
-                    0.333, 0.333, 0.333, 1, // v_2
-                    0.333, 0.333, 0.333, 1, // v_2
-                    0.333, 0.333, 0.333, 1, // v_2
-                  // Top Face
-                    0.5, 0.5, 0.5, 1, // v_3
-                    0.5, 0.5, 0.5, 1, // v_3
-                    0.5, 0.5, 0.5, 1, // v_3
-                    0.5, 0.5, 0.5, 1, // v_3
-                  // Bottom Face
-                    0.666, 0.666, 0.666, 1, // v_4
-                    0.666, 0.666, 0.666, 1, // v_4
-                    0.666, 0.666, 0.666, 1, // v_4
-                    0.666, 0.666, 0.666, 1, // v_4
-                  // Right Face
-                    0.833, 0.833, 0.833, 1, // v_5
-                    0.833, 0.833, 0.833, 1, // v_5
-                    0.833, 0.833, 0.833, 1, // v_5
-                    0.833, 0.833, 0.833, 1, // v_5
-                  // Left Face
-                    1, 1, 1, 1, // v_6
-                    1, 1, 1, 1, // v_6
-                    1, 1, 1, 1, // v_6
-                    1, 1, 1, 1, // v_6
-                ]
-            },
-        indices: {
-                numComponents: 3,
-                data: [
-                  0, 1, 2,      0, 2, 3,    // Front face
-                  4, 5, 6,      4, 6, 7,    // Back face
-                  8, 9, 10,     8, 10, 11,  // Top face
-                  12, 13, 14,   12, 14, 15, // Bottom face
-                  16, 17, 18,   16, 18, 19, // Right face
-                  20, 21, 22,   20, 22, 23  // Left face
-                ]
-            }
-    };
-    return arrays;
-}
-
-main()

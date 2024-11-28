@@ -1,178 +1,158 @@
-# TC2008B. Sistemas Multiagentes y Gráficas Computacionales
-# Python flask server to interact with webGL.
-# Octavio Navarro. 2024
+# servidor_flask.py
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
 from model import CityModel
 from agent import Road, Obstacle, Car, Destination, TrafficLight
+import json
 
-# Global variables
-randomModel = None
-currentStep = 0
+# Variables globales
+city_model = None
+current_step = 0
 
 # Flask app
-app = Flask("Traffic example")
-cors = CORS(app, origins=['http://localhost'])
+app = Flask("TrafficSimulation")
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 @app.route('/init', methods=['POST'])
 @cross_origin()
-def initModel():
-    """
-    Initialize the model with the map configuration.
-    """
-    global currentStep, randomModel
-
-    if request.method == 'POST':
-        try:
-            currentStep = 0
-            randomModel = CityModel()
-            print("Model initialized successfully from map file.")
-            return jsonify({"message": "Model initialized from map file."}), 200
-        except Exception as e:
-            print(f"Error during initialization: {e}")
-            return jsonify({"message": "Error initializing the model", "error": str(e)}), 500
-
-@app.route('/getStreets', methods=['GET'])
-@cross_origin()
-def getStreets():
-    """
-    Get the positions of street agents.
-    """
-    global randomModel
-    if request.method == 'GET':
-        try:
-            streetPositions = [
-                {"id": str(a.unique_id), "x": x, "y": -4, "z": z}
-                for (contents, (x, z)) in randomModel.grid.coord_iter()
-                for a in contents
-                if isinstance(a, Road)
-            ]
-            return jsonify({'positions': streetPositions}), 200
-        except Exception as e:
-            print(f"Error with street positions: {e}")
-            return jsonify({"message": "Error with street positions"}), 500
-
-@app.route('/getBuildings', methods=['GET'])
-@cross_origin()
-def getBuildings():
-    """
-    Get the positions of building agents.
-    """
-    global randomModel
-    if request.method == 'GET':
-        try:
-            buildingPositions = [
-                {"id": str(a.unique_id), "x": x, "y": -1.5, "z": z}
-                for (contents, (x, z)) in randomModel.grid.coord_iter()
-                for a in contents
-                if isinstance(a, Obstacle)
-            ]
-            return jsonify({'positions': buildingPositions}), 200
-        except Exception as e:
-            print(f"Error with building positions: {e}")
-            return jsonify({"message": "Error with building positions"}), 500
-
-@app.route('/getDestinations', methods=['GET'])
-@cross_origin()
-def getDestinations():
-    """
-    Get the positions of destination agents.
-    """
-    global randomModel
-    if request.method == 'GET':
-        try:
-            destinationPositions = [
-                {"id": str(a.unique_id), "x": x, "y": -1, "z": z}
-                for (contents, (x, z)) in randomModel.grid.coord_iter()
-                for a in contents
-                if isinstance(a, Destination)
-            ]
-            return jsonify({'positions': destinationPositions}), 200
-        except Exception as e:
-            print(f"Error with destination positions: {e}")
-            return jsonify({"message": "Error with destination positions"}), 500
-
-@app.route('/getTrafficLights', methods=['GET'])
-@cross_origin()
-def getTrafficLights():
-    """
-    Get the RGB states of traffic light agents.
-    """
-    global randomModel
-    if request.method == 'GET':
-        try:
-            trafficLightStates = [
-                {
-                    "id": str(a.unique_id),
-                    "x": x,
-                    "y": 0.5,
-                    "z": z,
-                    "r": a.color[0],  # Red component
-                    "g": a.color[1],  # Green component
-                    "b": a.color[2],  # Blue component
-                    "a": a.color[3]   # Alpha component
-                }
-                for (contents, (x, z)) in randomModel.grid.coord_iter()
-                for a in contents
-                if isinstance(a, TrafficLight)
-            ]
-            return jsonify({'states': trafficLightStates}), 200
-        except Exception as e:
-            print(f"Error with traffic light RGB states: {e}")
-            return jsonify({"message": "Error with traffic light RGB states"}), 500
-
-@app.route('/getCars', methods=['GET'])
-@cross_origin()
-def getCars():
-    """
-    Get the positions of car agents.
-    """
-    global randomModel
-    if request.method == 'GET':
-        try:
-            carPositions = [
-                {"id": str(a.unique_id), "x": x, "y": -3, "z": z, "facing": a.facing, "current_x": a.current_pos[0], "current_y": -3,
-                "current_z": a.current_pos[1]}
-                for (contents, (x, z)) in randomModel.grid.coord_iter()
-                for a in contents
-                if isinstance(a, Car)
-            ]
-            return jsonify({'positions': carPositions}), 200
-        except Exception as e:
-            print(f"Error with car positions: {e}")
-            return jsonify({"message": "Error with car positions"}), 500
-
-@app.route('/getGraphConnections', methods=['GET'])
-@cross_origin()
-def getGraphConnections():
-    """
-    Get the graph connections from the model.
-    """
-    global randomModel
-    if request.method == 'GET':
-        try:
-            return jsonify({'graph': randomModel.graph}), 200
-        except Exception as e:
-            print(f"Error retrieving graph connections: {e}")
-            return jsonify({"message": "Error retrieving graph connections"}), 500
+def init_model():
+    global city_model, current_step
+    try:
+        data = request.json
+        map_file_path = data.get('map_file', '../city_files/map.txt')
+        steps_dist_max = data.get('steps_dist_max', 100)
+        
+        # Leer el archivo de mapa
+        with open(map_file_path, 'r') as file:
+            lines = [line.strip() for line in file.readlines()]
+        
+        width = len(lines[0])
+        height = len(lines)
+        
+        # Inicializar el modelo
+        city_model = CityModel(width=width, height=height, lines=lines, steps_dist_max=steps_dist_max)
+        current_step = 0
+        
+        return jsonify({"message": "Modelo inicializado exitosamente.", "width": width, "height": height}), 200
+    except Exception as e:
+        print(f"Error durante la inicialización: {e}")
+        return jsonify({"message": "Error al inicializar el modelo", "error": str(e)}), 500
 
 @app.route('/update', methods=['GET'])
 @cross_origin()
-def updateModel():
-    """
-    Update the model by one step.
-    """
-    global currentStep, randomModel
-    if request.method == 'GET':
-        try:
-            randomModel.step()
-            currentStep += 1
-            return jsonify({'message': f'Model updated to step {currentStep}.', 'currentStep': currentStep}), 200
-        except Exception as e:
-            print(f"Error during model update: {e}")
-            return jsonify({"message": "Error during model update"}), 500
+def update_model():
+    global city_model, current_step
+    try:
+        if city_model is None:
+            return jsonify({"message": "Modelo no inicializado."}), 400
+        
+        city_model.step()
+        current_step += 1
+        
+        return jsonify({"message": f"Modelo actualizado al paso {current_step}.", "current_step": current_step}), 200
+    except Exception as e:
+        print(f"Error durante la actualización del modelo: {e}")
+        return jsonify({"message": "Error al actualizar el modelo", "error": str(e)}), 500
+
+@app.route('/getStreets', methods=['GET'])
+@cross_origin()
+def get_streets():
+    global city_model
+    try:
+        streets = []
+        for agent in city_model.schedule.agents:
+            if isinstance(agent, Road):
+                x, y = agent.pos
+                streets.append({"id": agent.unique_id, "x": x, "z": y})
+        return jsonify({'streets': streets}), 200
+    except Exception as e:
+        print(f"Error al obtener calles: {e}")
+        return jsonify({"message": "Error al obtener calles", "error": str(e)}), 500
+
+@app.route('/getBuildings', methods=['GET'])
+@cross_origin()
+def get_buildings():
+    global city_model
+    try:
+        buildings = []
+        for agent in city_model.schedule.agents:
+            if isinstance(agent, Obstacle):
+                x, y = agent.pos
+                buildings.append({"id": agent.unique_id, "x": x, "z": y})
+        return jsonify({'buildings': buildings}), 200
+    except Exception as e:
+        print(f"Error al obtener edificios: {e}")
+        return jsonify({"message": "Error al obtener edificios", "error": str(e)}), 500
+
+@app.route('/getDestinations', methods=['GET'])
+@cross_origin()
+def get_destinations():
+    global city_model
+    try:
+        destinations = []
+        for agent in city_model.schedule.agents:
+            if isinstance(agent, Destination):
+                x, y = agent.pos
+                destinations.append({"id": agent.unique_id, "x": x, "z": y})
+        return jsonify({'destinations': destinations}), 200
+    except Exception as e:
+        print(f"Error al obtener destinos: {e}")
+        return jsonify({"message": "Error al obtener destinos", "error": str(e)}), 500
+
+@app.route('/getTrafficLights', methods=['GET'])
+@cross_origin()
+def get_traffic_lights():
+    global city_model
+    try:
+        traffic_lights = []
+        for agent in city_model.schedule.agents:
+            if isinstance(agent, TrafficLight):
+                x, y = agent.pos
+                color = "green" if agent.state == "green" else "red"
+                traffic_lights.append({
+                    "id": agent.unique_id,
+                    "x": x,
+                    "z": y,
+                    "color": color
+                })
+        return jsonify({'traffic_lights': traffic_lights}), 200
+    except Exception as e:
+        print(f"Error al obtener semáforos: {e}")
+        return jsonify({"message": "Error al obtener semáforos", "error": str(e)}), 500
+
+@app.route('/getCars', methods=['GET'])
+@cross_origin()
+def get_cars():
+    global city_model
+    try:
+        cars = []
+        for agent in city_model.schedule.agents:
+            if isinstance(agent, Car):
+                x, y = agent.pos
+                cars.append({
+                    "id": agent.unique_id,
+                    "x": x,
+                    "z": y,
+                    "destination": agent.destination,
+                    "route_index": agent.route_index,
+                    "steps_taken": agent.steps_taken
+                })
+        return jsonify({'cars': cars}), 200
+    except Exception as e:
+        print(f"Error al obtener coches: {e}")
+        return jsonify({"message": "Error al obtener coches", "error": str(e)}), 500
+
+@app.route('/getGraphConnections', methods=['GET'])
+@cross_origin()
+def get_graph_connections():
+    global city_model
+    try:
+        return jsonify({'graph': city_model.graph}), 200
+    except Exception as e:
+        print(f"Error al obtener conexiones del grafo: {e}")
+        return jsonify({"message": "Error al obtener conexiones del grafo", "error": str(e)}), 500
 
 if __name__ == '__main__':
-    # Run the Flask server on port 8585
-    app.run(host="localhost", port=8585, debug=True)
+    # Ejecutar el servidor Flask en el puerto 8585
+    app.run(host="0.0.0.0", port=8585, debug=True)
