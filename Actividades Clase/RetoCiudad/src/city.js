@@ -66,7 +66,7 @@ class Street3D {
 }
 
 class TrafficLight3D {
-  constructor(id, position=[0,0,0], rotation=[0,0,0], scale=[1,1,1]){
+  constructor(id, position=[0,0,0], rotation=[0,0,0], scale=[1,1,1], color=[1,1,1]){
     this.id = id;
     this.position = position;
     this.rotation = rotation;
@@ -105,8 +105,8 @@ const trafficLights = [];
 const destinations = [];
 
 // Initialize WebGL-related variables
-let gl, programInfo, streetArrays, buildingArrays, carArrays, destinationArrays, streetBufferInfo, buildingBufferInfo, 
-carBufferInfo, destinationBufferInfo, streetVao, buildingVao, carVao, destinationVao;
+let gl, programInfo, streetArrays, buildingArrays, carArrays, destinationArrays, trafficLightArrays, streetBufferInfo, buildingBufferInfo, 
+carBufferInfo, destinationBufferInfo, trafficLightBufferInfo, streetVao, buildingVao, carVao, destinationVao, trafficLightVao;
 
 // Define the camera position
 let cameraPosition = {x:0, y:0, z:0};
@@ -211,11 +211,15 @@ async function main() {
   programInfo = twgl.createProgramInfo(gl, [vsGLSL, fsGLSL]);
 
   // Cargar modelos .obj
-  const [buildingModel, carModel, flagModel] = await Promise.all([
+  const [buildingModel, carModel, flagModel, trafficLightModel] = await Promise.all([
     loadModelObj('../building.obj'), // Reemplaza con la ruta correcta
     loadModelObj('../car.obj'),
-    loadModelObj('../flag.obj')       // Reemplaza con la ruta correcta
+    loadModelObj('../flag.obj'),
+    loadModelObj('../light.obj')          // Reemplaza con la ruta correcta
   ]);
+  
+  console.log(trafficLightModel)
+
 
   // Asignar los modelos cargados a las variables de buffer y VAO
   buildingBufferInfo = buildingModel.bufferInfo;
@@ -224,6 +228,8 @@ async function main() {
   carVao = carModel.vao;
   destinationBufferInfo = flagModel.bufferInfo;
   destinationVao = flagModel.vao;
+  trafficLightBufferInfo = trafficLightModel.bufferInfo;
+  trafficLightVao = trafficLightModel.vao
 
   // Generar datos para calles y destinos
   streetArrays = generateData(1);
@@ -251,9 +257,10 @@ async function main() {
   await getStreets();
   await getDestinations();
   await getCars();
+  await getTrafficLights();
 
   // Dibujar la escena
-  await drawScene(gl, programInfo, streetVao, streetBufferInfo, buildingVao, buildingBufferInfo, carVao, carBufferInfo, destinationVao, destinationBufferInfo);
+  await drawScene(gl, programInfo, streetVao, streetBufferInfo, buildingVao, buildingBufferInfo, carVao, carBufferInfo, destinationVao, destinationBufferInfo, trafficLightBufferInfo, trafficLightVao);
 }
 
 /*
@@ -445,6 +452,51 @@ async function getDestinations() {
   }
 }
 
+async function getTrafficLights() {
+  try {
+    // Send a GET request to the server to retrieve the traffic light states
+    let response = await fetch(agent_server_uri + "getTrafficLights");
+
+    // Check if the response was successful
+    if (response.ok) {
+      // Parse the response as JSON
+      let result = await response.json();
+
+      // Check if the trafficLights array is empty
+      if (trafficLights.length === 0) {
+        // Create new traffic lights and add them to the trafficLights array
+        for (const light of result.positions) {
+          const newTrafficLight = new TrafficLight3D(
+            light.id,
+            [light.x, light.y, light.z, light.a], // Position
+            [light.r, light.g, light.b, light.a] // Initial color
+          );
+          trafficLights.push(newTrafficLight);
+        }
+        // Log the trafficLights array
+        console.log("Traffic Lights:", trafficLights);
+
+      } else {
+        // Update the properties of existing traffic lights
+        for (const light of result.positions) {
+          const currentLight = trafficLights.find((object3d) => object3d.id === light.id);
+
+          // Check if the traffic light exists in the trafficLights array
+          if (currentLight !== undefined) {
+            // Update the traffic light's position and color
+            currentLight.position = [light.x, light.y, light.z];
+            currentLight.color = [light.r, light.g, light.b, light.a];
+          }
+        }
+      }
+    }
+
+  } catch (error) {
+    // Log any errors that occur during the request
+    console.log("Error fetching traffic lights:", error);
+  }
+}
+
 /*
  * Updates the car positions by sending a request to the car server.
  */
@@ -477,7 +529,7 @@ async function update() {
  * @param {WebGLVertexArrayObject} buildingVao - The vertex array object for obstacles.
  * @param {Object} buildingBufferInfo - The buffer information for obstacles.
  */
-async function drawScene(gl, programInfo, streetVao, streetBufferInfo, buildingVao, buildingBufferInfo, carVao, carBufferInfo, destinationVao, destinationBufferInfo) {
+async function drawScene(gl, programInfo, streetVao, streetBufferInfo, buildingVao, buildingBufferInfo, carVao, carBufferInfo, destinationVao, destinationBufferInfo, trafficLightBufferInfo, trafficLightVao) {
     // Resize the canvas to match the display size
     twgl.resizeCanvasToDisplaySize(gl.canvas);
 
@@ -508,6 +560,8 @@ async function drawScene(gl, programInfo, streetVao, streetBufferInfo, buildingV
     drawCars(distance, carVao, carBufferInfo, viewProjectionMatrix)
 
     drawDestinations(distance, destinationVao, destinationBufferInfo, viewProjectionMatrix)
+
+    drawTrafficLights(distance, trafficLightBufferInfo, trafficLightVao, viewProjectionMatrix)
     // Increment the frame count
     frameCount++
 
@@ -518,7 +572,7 @@ async function drawScene(gl, programInfo, streetVao, streetBufferInfo, buildingV
     } 
 
     // Request the next frame
-    requestAnimationFrame(()=>drawScene(gl, programInfo, streetVao, streetBufferInfo, buildingVao, buildingBufferInfo, carVao, carBufferInfo, destinationVao, destinationBufferInfo))
+    requestAnimationFrame(()=>drawScene(gl, programInfo, streetVao, streetBufferInfo, buildingVao, buildingBufferInfo, carVao, carBufferInfo, destinationVao, destinationBufferInfo, trafficLightBufferInfo, trafficLightVao))
 }
 
 /*
@@ -672,6 +726,48 @@ function drawBuildings(distance, buildingVao, buildingBufferInfo, viewProjection
       twgl.drawBufferInfo(gl, buildingBufferInfo);
       
     }
+}
+
+function drawTrafficLights(distance, trafficLightVao, trafficLightBufferInfo, viewProjectionMatrix) {
+  if (!trafficLightVao) {
+    console.error("Traffic Light VAO is not initialized.");
+    return;  // Early return if the VAO is not available.
+  }
+
+  console.log("Traffic Light VAO is initialized:", trafficLightVao);  // Debugging log
+
+  gl.bindVertexArray(trafficLightVao);
+
+  for (const trafficLight of trafficLights) {
+    const cube_trans = twgl.v3.create(...trafficLight.position);
+    const cube_scale = twgl.v3.create(...trafficLight.scale);
+
+    trafficLight.matrix = twgl.m4.translate(viewProjectionMatrix, cube_trans);
+    trafficLight.matrix = twgl.m4.rotateX(trafficLight.matrix, trafficLight.rotation[0]);
+    trafficLight.matrix = twgl.m4.rotateY(trafficLight.matrix, trafficLight.rotation[1]);
+    trafficLight.matrix = twgl.m4.rotateZ(trafficLight.matrix, trafficLight.rotation[2]);
+    trafficLight.matrix = twgl.m4.scale(trafficLight.matrix, cube_scale);
+
+    const newColorData = [];
+    for (let i = 0; i < trafficLightBufferInfo.numElements; i++) {
+      newColorData.push(...trafficLight.color); // Use the new traffic light color
+    }
+
+    twgl.setAttribInfoBufferFromArray(
+      gl,
+      trafficLightBufferInfo.attribs.a_color,
+      newColorData
+    );
+
+    const uniforms = {
+      u_matrix: trafficLight.matrix,
+      u_color: [1.0, 0.0, 0.0, 1.0], // Red
+      u_useUniformColor: true
+    };
+
+    twgl.setUniforms(programInfo, uniforms);
+    twgl.drawBufferInfo(gl, trafficLightBufferInfo);
+  }
 }
 
 /*
